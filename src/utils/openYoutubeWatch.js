@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
+import { YouTubeLaunch } from '../plugins/YouTubeLaunch.js'
 
 /** @param {string} videoId */
 export function youtubeWatchHttpsUrl(videoId) {
@@ -9,21 +10,20 @@ export function youtubeWatchHttpsUrl(videoId) {
 }
 
 /**
- * Android: intent targets the YouTube app; S.browser_fallback_url opens the watch page if the app is missing.
- * iOS: youtube:// prefers the installed YouTube app; falls back to in-app browser.
+ * Android intent URL (fallback if native plugin fails). Only use inside the real Android app —
+ * never in desktop/mobile Chrome: DevTools device emulation spoofs Android UA but has no intent handler.
  */
 function androidYoutubeIntent(videoId, httpsWatchUrl) {
-  const id = encodeURIComponent(videoId)
+  const encId = encodeURIComponent(videoId)
   const fallback = encodeURIComponent(httpsWatchUrl)
-  return `intent://www.youtube.com/watch?v=${id}#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=${fallback};end`
+  return `intent://www.youtube.com/watch?v=${encId}#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=${fallback};end`
 }
 
 function iosYoutubeAppUrl(videoId) {
-  const id = encodeURIComponent(videoId)
-  return `youtube://www.youtube.com/watch?v=${id}`
+  const encId = encodeURIComponent(videoId)
+  return `youtube://www.youtube.com/watch?v=${encId}`
 }
 
-/** Open a URL via a real click so the WebView can hand off to the OS (intents / URL schemes) without replacing the app. */
 function dispatchUrl(url) {
   const a = document.createElement('a')
   a.href = url
@@ -34,8 +34,9 @@ function dispatchUrl(url) {
 }
 
 /**
- * Open this video in the mobile YouTube app when possible (native Android/iOS).
- * Falls back to Capacitor in-app browser, then window.open.
+ * - Web / Vite / Chrome (including device emulation): always https in a new tab — no intent://
+ * - Native Android: native Intent via plugin, then intent://, then in-app browser
+ * - Native iOS: youtube:// then in-app browser
  * @param {string | undefined} videoId
  */
 export async function openYoutubeWatchPreferApp(videoId) {
@@ -51,22 +52,41 @@ export async function openYoutubeWatchPreferApp(videoId) {
 
   const platform = Capacitor.getPlatform()
 
-  try {
-    if (platform === 'android') {
+  if (platform === 'android') {
+    try {
+      await YouTubeLaunch.openWatch({ videoId: id })
+      return
+    } catch {
+      /* fall through */
+    }
+    try {
       dispatchUrl(androidYoutubeIntent(id, https))
       return
+    } catch {
+      /* fall through */
     }
-    if (platform === 'ios') {
-      dispatchUrl(iosYoutubeAppUrl(id))
-      return
+    try {
+      await Browser.open({ url: https })
+    } catch {
+      window.open(https, '_blank', 'noopener,noreferrer')
     }
-  } catch {
-    /* fall through */
+    return
   }
 
-  try {
-    await Browser.open({ url: https })
-  } catch {
-    window.open(https, '_blank', 'noopener,noreferrer')
+  if (platform === 'ios') {
+    try {
+      dispatchUrl(iosYoutubeAppUrl(id))
+      return
+    } catch {
+      /* fall through */
+    }
+    try {
+      await Browser.open({ url: https })
+    } catch {
+      window.open(https, '_blank', 'noopener,noreferrer')
+    }
+    return
   }
+
+  window.open(https, '_blank', 'noopener,noreferrer')
 }

@@ -17,6 +17,8 @@ const router = useRouter()
 const videoEl = ref(null)
 const megaIframeEl = ref(null)
 const megaIframeFs = ref(false)
+const youtubeRootEl = ref(null)
+const youtubeEmbedFs = ref(false)
 const loadError = ref(false)
 const liked = ref(false)
 const shareHint = ref(false)
@@ -90,9 +92,6 @@ async function openYoutubeWatch() {
   await openYoutubeWatchPreferApp(video.value?.youtubeVideoId)
 }
 
-/** On the native app, Like/Share should jump to YouTube (real like/share), not stay in WebView. */
-const openYoutubeForActions = () => Capacitor.isNativePlatform() && Boolean(youtubeWatchUrl.value)
-
 function isOurVideoFullscreen() {
   const v = videoEl.value
   if (!v) return false
@@ -101,6 +100,32 @@ function isOurVideoFullscreen() {
   if (fs === v) return true
   try {
     return Boolean(fs.contains?.(v))
+  } catch {
+    return false
+  }
+}
+
+function isMegaIframeDocumentFullscreen() {
+  const iframe = megaIframeEl.value
+  if (!iframe) return false
+  const fs = document.fullscreenElement
+  if (!fs) return false
+  if (fs === iframe) return true
+  try {
+    return Boolean(fs.contains?.(iframe))
+  } catch {
+    return false
+  }
+}
+
+function isYoutubeEmbedDocumentFullscreen() {
+  const root = youtubeRootEl.value
+  if (!root) return false
+  const fs = document.fullscreenElement
+  if (!fs) return false
+  if (fs === root) return true
+  try {
+    return Boolean(fs.contains?.(root))
   } catch {
     return false
   }
@@ -139,11 +164,11 @@ async function applyOrientationForFullscreen(entering) {
 }
 
 function onDocumentFullscreenChange() {
-  const iframe = megaIframeEl.value
-  megaIframeFs.value = Boolean(
-    iframe && (document.fullscreenElement === iframe || document.fullscreenElement?.contains?.(iframe)),
-  )
-  void applyOrientationForFullscreen(isOurVideoFullscreen())
+  megaIframeFs.value = isMegaIframeDocumentFullscreen()
+  youtubeEmbedFs.value = isYoutubeEmbedDocumentFullscreen()
+  const anyFs =
+    isOurVideoFullscreen() || megaIframeFs.value || youtubeEmbedFs.value
+  void applyOrientationForFullscreen(anyFs)
 }
 
 async function toggleMegaIframeFullscreen() {
@@ -154,6 +179,8 @@ async function toggleMegaIframeFullscreen() {
       await document.exitFullscreen()
       return
     }
+    /* Same user gesture: lock landscape first so the device rotates with fullscreen (native + capable browsers). */
+    await applyOrientationForFullscreen(true)
     if (el.requestFullscreen) {
       await el.requestFullscreen()
       return
@@ -161,7 +188,24 @@ async function toggleMegaIframeFullscreen() {
     // Safari / older WebKit
     el.webkitRequestFullscreen?.()
   } catch {
-    /* OS/WebView may block iframe fullscreen */
+    void applyOrientationForFullscreen(false)
+  }
+}
+
+async function toggleYoutubeEmbedFullscreen() {
+  const el = youtubeRootEl.value
+  if (!el) return
+  try {
+    if (document.fullscreenElement === el) {
+      await document.exitFullscreen()
+      return
+    }
+    await applyOrientationForFullscreen(true)
+    if (el.requestFullscreen) {
+      await el.requestFullscreen()
+    }
+  } catch {
+    void applyOrientationForFullscreen(false)
   }
 }
 
@@ -190,6 +234,10 @@ onUnmounted(() => {
   if (iframe && document.fullscreenElement === iframe) {
     void document.exitFullscreen()
   }
+  const ytRoot = youtubeRootEl.value
+  if (ytRoot && document.fullscreenElement === ytRoot) {
+    void document.exitFullscreen()
+  }
   void applyOrientationForFullscreen(false)
 })
 
@@ -209,8 +257,13 @@ watch(
     isSeeking.value = false
     isNativePlaying.value = false
     megaIframeFs.value = false
+    youtubeEmbedFs.value = false
     const iframe = megaIframeEl.value
     if (iframe && document.fullscreenElement === iframe) {
+      void document.exitFullscreen()
+    }
+    const ytRoot = youtubeRootEl.value
+    if (ytRoot && document.fullscreenElement === ytRoot) {
       void document.exitFullscreen()
     }
     videoEl.value?.load?.()
@@ -284,6 +337,7 @@ async function toggleNativeFullscreen() {
       await document.exitFullscreen()
       return
     }
+    await applyOrientationForFullscreen(true)
     if (typeof v.webkitEnterFullscreen === 'function') {
       v.webkitEnterFullscreen()
       return
@@ -292,7 +346,7 @@ async function toggleNativeFullscreen() {
       await v.requestFullscreen()
     }
   } catch {
-    /* ignore */
+    void applyOrientationForFullscreen(false)
   }
 }
 
@@ -307,27 +361,20 @@ function goBack() {
 }
 
 /**
- * YouTube does not allow liking from a WebView without OAuth + YouTube Data API.
- * Native app: every Like tap opens this video on YouTube. Web: open when turning Like on.
+ * YouTube does not allow real like/share from our WebView; open this episode on YouTube (app on phones / new tab on desktop).
  */
 async function onLikeToggle() {
   if (!video.value?.youtubeVideoId) return
 
-  const wasLiked = liked.value
-  liked.value = !wasLiked
-
-  if (openYoutubeForActions()) {
-    await openYoutubeWatch()
-    return
-  }
-  if (!wasLiked) await openYoutubeWatch()
+  liked.value = !liked.value
+  await openYoutubeWatch()
 }
 
 async function onShare() {
   const title = video.value?.title ?? 'Video'
   const url = shareUrl.value
 
-  if (openYoutubeForActions()) {
+  if (video.value?.youtubeVideoId) {
     await openYoutubeWatch()
     return
   }
@@ -389,16 +436,28 @@ async function onShare() {
             </span>
           </div>
         </div>
-        <div v-else-if="useYoutubeEmbed" class="watch__yt-embed">
-          <iframe
-            :key="youtubeEmbedSrc"
-            class="watch__yt-iframe"
-            title="YouTube video"
-            :src="youtubeEmbedSrc"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen
-            referrerpolicy="strict-origin-when-cross-origin"
-          />
+        <div v-else-if="useYoutubeEmbed" class="watch__mega">
+          <div ref="youtubeRootEl" class="watch__yt-embed">
+            <iframe
+              :key="youtubeEmbedSrc"
+              class="watch__yt-iframe"
+              title="YouTube video"
+              :src="youtubeEmbedSrc"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+          <div class="watch__mega-tools" role="toolbar" aria-label="YouTube player helpers">
+            <button
+              type="button"
+              class="watch__mega-tool-btn"
+              @click="toggleYoutubeEmbedFullscreen"
+            >
+              {{ youtubeEmbedFs ? 'Exit fullscreen' : 'Fullscreen' }}
+            </button>
+            <span class="watch__mega-tip">Locks landscape on your phone, then fills the screen.</span>
+          </div>
         </div>
         <div v-else class="watch__native">
           <video
