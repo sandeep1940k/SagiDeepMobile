@@ -1,0 +1,57 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.7.2'
+        classpath 'com.google.gms:google-services:4.4.2'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    // Cordova / older deps can pull kotlin-stdlib-jdk7/jdk8:1.6.x while AGP pulls kotlin-stdlib:1.8+,
+    // which embeds the same classes → duplicate class errors at merge.
+    configurations.configureEach {
+        resolutionStrategy.eachDependency { details ->
+            def req = details.requested
+            if (req.group != 'org.jetbrains.kotlin') return
+            switch (req.name) {
+                case 'kotlin-stdlib':
+                case 'kotlin-stdlib-jdk7':
+                case 'kotlin-stdlib-jdk8':
+                case 'kotlin-stdlib-jdk9':
+                    details.useVersion '1.9.24'
+                    break
+            }
+        }
+    }
+}
+
+// Capacitor defaults to Java 21; JDK 17 is enough for AGP 8.x and avoids "invalid source release: 21".
+subprojects { sub ->
+    sub.afterEvaluate {
+        if (sub.plugins.hasPlugin('com.android.library') || sub.plugins.hasPlugin('com.android.application')) {
+            sub.android.compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

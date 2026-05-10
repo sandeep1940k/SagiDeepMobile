@@ -1,0 +1,13 @@
+{
+  "appId": "com.sandeep.sagideep",
+  "appName": "SagiDeep",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "mega.nz",
+      "*.mega.nz",
+      "mega.co.nz",
+      "*.mega.co.nz"
+    ]
+  }
+}

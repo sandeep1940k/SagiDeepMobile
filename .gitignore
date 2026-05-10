@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+!.env.example
+
+# Large media — use MEGA/streaming URLs in playlists.js; do not commit multi‑GB files
+public/videos/**/*.mp4
+public/videos/**/*.webm
+public/videos/**/*.mkv
+
+# Android build outputs (debug APK can be ~GB if corrupted; never commit)
+android/app/build/
+android/build/
+*.apk
+*.aab
+
+# Android SDK path (machine-specific; created by scripts/build-apk.mjs if missing)
+android/local.properties
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

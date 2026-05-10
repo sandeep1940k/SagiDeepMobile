@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SagiDeep</string>
+    <string name="title_activity_main">SagiDeep</string>
+    <string name="package_name">com.sandeep.sagideep</string>
+    <string name="custom_url_scheme">com.sandeep.sagideep</string>
+</resources>
