@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Google Sheet Save</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+    }
+
+    input {
+      display: block;
+      margin-bottom: 10px;
+      padding: 10px;
+      width: 300px;
+    }
+
+    button {
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Save Data To Google Sheet</h2>
+  <p style="max-width: 420px; color: #444; font-size: 14px;">
+    Same Web App URL as <code>src/config/playlistSheetLogUrl.js</code>.
+    Open via dev server: <code>/google-sheet-save-test.html</code>
+  </p>
+
+  <input type="text" id="name" placeholder="Enter Name" />
+  <input type="email" id="email" placeholder="Enter Email" />
+  <button type="button" onclick="saveData()">Save</button>
+
+  <script>
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycbwNJrxNC6QAZve_UPHrXRA6povuDt70mtnbCSSxHP8ISWicxUyy86J2V5TritcAvWby1w/exec'
+
+    async function saveData() {
+      const formData = new FormData()
+      formData.append('name', document.getElementById('name').value)
+      formData.append('email', document.getElementById('email').value)
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: formData,
+        })
+        const result = await response.text()
+        console.log(result)
+        alert('Saved Successfully')
+      } catch (error) {
+        console.error(error)
+        alert('Failed')
+      }
+    }
+  </script>
+</body>
+
+</html>

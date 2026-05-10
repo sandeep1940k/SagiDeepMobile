@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getPlaylistById } from '../data/playlists.js'
+import { logPlaylistOpen } from '../services/playlistSheetLog.js'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,6 +21,17 @@ const router = createRouter({
       component: () => import('../views/VideoPlayerView.vue'),
     },
   ],
+})
+
+/** On playlist tap: POST ip, playlistName, time (+ playlistId) to Google Sheet via Apps Script. */
+router.afterEach((to) => {
+  if (to.name !== 'playlist') return
+  const playlistId = String(to.params.id ?? '')
+  const p = getPlaylistById(playlistId)
+  void logPlaylistOpen({
+    playlistId,
+    playlistName: p?.name ?? playlistId,
+  })
 })
 
 export default router
