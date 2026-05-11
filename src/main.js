@@ -4,6 +4,9 @@ import { App as CapacitorApp } from '@capacitor/app'
 import './style.css'
 import App from './App.vue'
 import router from './router'
+import { loadPlaylistsFromSheet } from './data/playlists.js'
+
+await loadPlaylistsFromSheet()
 
 const app = createApp(App).use(router)
 app.mount('#app')

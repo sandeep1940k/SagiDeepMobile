@@ -1,56 +1,183 @@
 /**
+ * All playlist rows are loaded at startup from Google Sheets (CSV via Visualization API).
+ * Override with `VITE_PLAYLIST_SHEET_ID` / `VITE_PLAYLIST_SHEET_NAME` in `.env`.
+ *
  * `videoSrc` options:
  * - Bundled: `/videos/…/file.mp4` (under `public/videos/…`)
  * - MEGA: `https://mega.nz/file/HANDLE#KEY` (embedded in-app via MEGA’s player)
  * - Or set only `youtubeVideoId` for YouTube embed (no `videoSrc`).
  */
-export const playlistsById = {
-  '1': {
-    id: '1',
-    name: 'Renegade Immortal',
-    variant: 'blood',
-    coverSrc: '/playlists/renegade-immortal.png',
-    videos: [
-      {
-        id: 'ep-1',
-        title: 'Renegade Immortal Episode 1 Hindi | Weak Boy to Immortal',
-        videoSrc: 'https://mega.nz/file/r5gHSRKL#GW4ts0pw9Of8r7XbjlqRfq6MJMOmZAgyhwmbnVhBqTY',
-        thumbnailUrl: '/playlists/renegade-immortal/renegade-ep1.webp',
-        youtubeVideoId: 'CaGP0tezJt0',
-        youtubeStatsLine: '',
-        duration: '',
-        channelLine: 'SagiDeep',
-      },
-      {
-        id: 'ep-2',
-        title: 'Renegade Immortal Episode 2 Hindi',
-        videoSrc: 'https://mega.nz/file/j9QCCBiA#Sd9HVw9SfiLtufFm4IkDdenRWyZsya-nG2k68HMwKyI',
-        thumbnailUrl: '/playlists/renegade-immortal/renegade-ep2.png',
-        youtubeVideoId: 'hT6iuiJUlY8',
-        youtubeStatsLine: '',
-        duration: '',
-        channelLine: 'SagiDeep',
-      },
-    ],
-  },
+
+const DEFAULT_SHEET_ID = '147Ds6y1uAU-Dgk-IUth7TaBdpj_bWZqMLFf_MFJNpaQ'
+const DEFAULT_SHEET_NAME = 'PlayList'
+
+const SHEET_ID =
+  String(import.meta.env.VITE_PLAYLIST_SHEET_ID || '').trim() || DEFAULT_SHEET_ID
+const SHEET_NAME =
+  String(import.meta.env.VITE_PLAYLIST_SHEET_NAME || '').trim() || DEFAULT_SHEET_NAME
+
+export function buildPlaylistSheetCsvUrl(sheetId = SHEET_ID, sheetName = SHEET_NAME) {
+  const q = new URLSearchParams({
+    tqx: 'out:csv',
+    sheet: sheetName,
+  })
+  return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq?${q}`
 }
 
-export const playlistsIndex = Object.values(playlistsById).map(
-  ({ id, name, variant, coverSrc, videos }) => ({
+export function parseCSV(csvText) {
+  const rows = []
+  let currentRow = []
+  let currentValue = ''
+  let insideQuotes = false
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i]
+    const nextChar = csvText[i + 1]
+
+    if (char === '"' && insideQuotes && nextChar === '"') {
+      currentValue += '"'
+      i++
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes
+    } else if (char === ',' && !insideQuotes) {
+      currentRow.push(currentValue.trim())
+      currentValue = ''
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (currentValue || currentRow.length > 0) {
+        currentRow.push(currentValue.trim())
+        rows.push(currentRow)
+        currentRow = []
+        currentValue = ''
+      }
+    } else {
+      currentValue += char
+    }
+  }
+
+  if (currentValue || currentRow.length > 0) {
+    currentRow.push(currentValue.trim())
+    rows.push(currentRow)
+  }
+
+  return rows
+}
+
+const COLS = 12
+
+function padRow(row) {
+  const out = row.slice(0, COLS)
+  while (out.length < COLS) out.push('')
+  return out
+}
+
+/** @param {string[][]} rows — raw CSV rows including header */
+export function rowsToPlaylistsById(rows) {
+  const dataRows = rows.slice(1)
+  /** @type {Record<string, any>} */
+  const playlists = {}
+
+  let currentPlaylistId = ''
+  let currentName = ''
+  let currentVariant = ''
+  let currentCoverSrc = ''
+
+  dataRows.forEach((raw) => {
+    const row = padRow(raw)
+    const [
+      id,
+      name,
+      variant,
+      coverSrc,
+      videoId,
+      videoTitle,
+      videoSrc,
+      thumbnailUrl,
+      youtubeVideoId,
+      youtubeStatsLine,
+      duration,
+      channelLine,
+    ] = row
+
+    if (id) currentPlaylistId = String(id).trim()
+    if (name) currentName = String(name).trim()
+    if (variant) currentVariant = String(variant).trim()
+    if (coverSrc) currentCoverSrc = String(coverSrc).trim()
+
+    if (!currentPlaylistId || !String(videoId || '').trim()) return
+
+    if (!playlists[currentPlaylistId]) {
+      playlists[currentPlaylistId] = {
+        id: currentPlaylistId,
+        name: currentName,
+        variant: currentVariant,
+        coverSrc: currentCoverSrc,
+        videos: [],
+      }
+    }
+
+    playlists[currentPlaylistId].videos.push({
+      id: String(videoId).trim(),
+      title: String(videoTitle || '').trim(),
+      videoSrc: String(videoSrc || '').trim(),
+      thumbnailUrl: String(thumbnailUrl || '').trim(),
+      youtubeVideoId: String(youtubeVideoId || '').trim(),
+      youtubeStatsLine: String(youtubeStatsLine || '').trim(),
+      duration: String(duration || '').trim(),
+      channelLine: String(channelLine || '').trim(),
+    })
+  })
+
+  return playlists
+}
+
+function indexFromById(byId) {
+  return Object.values(byId).map(({ id, name, variant, coverSrc, videos }) => ({
     id,
     name,
     videoCount: videos.length,
     variant,
     coverSrc,
-  }),
-)
+  }))
+}
+
+export let playlistsById = {}
+
+export let playlistsIndex = indexFromById(playlistsById)
+
+function applyPlaylistsById(byId) {
+  playlistsById = byId
+  playlistsIndex = indexFromById(playlistsById)
+}
+
+/**
+ * Fetches the “PlayList” tab as CSV from Google Sheets and replaces in-memory playlists.
+ * On failure or empty parse, playlists stay empty (see console warning).
+ */
+export async function loadPlaylistsFromSheet() {
+  const url = buildPlaylistSheetCsvUrl()
+  const response = await fetch(url)
+  if (!response.ok) {
+    console.warn('[playlists] sheet fetch failed', response.status, response.statusText)
+    applyPlaylistsById({})
+    return
+  }
+  const csvText = await response.text()
+  const rows = parseCSV(csvText)
+  const fromSheet = rowsToPlaylistsById(rows)
+  if (Object.keys(fromSheet).length === 0) {
+    console.warn('[playlists] sheet parsed to no playlists (check tab name and columns)')
+    applyPlaylistsById({})
+    return
+  }
+  applyPlaylistsById(fromSheet)
+}
 
 export function getPlaylistById(id) {
-  return playlistsById[id] ?? null
+  return playlistsById[String(id)] ?? null
 }
 
 export function getPlaylistVideo(playlistId, videoId) {
-  const p = playlistsById[playlistId]
+  const p = playlistsById[String(playlistId)]
   if (!p) return null
-  return p.videos.find((v) => v.id === videoId) ?? null
+  return p.videos.find((v) => v.id === String(videoId)) ?? null
 }
