@@ -11,6 +11,7 @@ import {
   useYoutubeVideoRuntimeStats,
 } from '../composables/useYoutubeRuntimeStats'
 import { isMegaFileOrEmbedUrl, megaToEmbedUrl } from '../utils/megaVideo'
+import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,8 +29,10 @@ const video = computed(() =>
   getPlaylistVideo(route.params.playlistId, route.params.videoId),
 )
 
+const resolvedYoutubeVideoId = computed(() => episodeYoutubeVideoId(video.value))
+
 const hasVideoFile = computed(() => Boolean(String(video.value?.videoSrc || '').trim()))
-const hasYoutubeId = computed(() => Boolean(String(video.value?.youtubeVideoId || '').trim()))
+const hasYoutubeId = computed(() => Boolean(resolvedYoutubeVideoId.value))
 /** Episode plays if there is a file path or a YouTube id (embed). */
 const showPlayer = computed(() => hasVideoFile.value || hasYoutubeId.value)
 /** In-app YouTube iframe when there is no local/stream `videoSrc`. */
@@ -38,7 +41,7 @@ const useYoutubeEmbed = computed(() => {
   return hasYoutubeId.value && !hasVideoFile.value
 })
 const youtubeEmbedSrc = computed(() => {
-  const id = String(video.value?.youtubeVideoId || '').trim()
+  const id = resolvedYoutubeVideoId.value
   if (!id) return ''
   return `https://www.youtube.com/embed/${encodeURIComponent(id)}?playsinline=1&rel=0`
 })
@@ -51,15 +54,17 @@ const useMegaEmbed = computed(() => {
 })
 const megaEmbedSrc = computed(() => megaToEmbedUrl(String(video.value?.videoSrc || '')))
 
-/** Prefer public YouTube link when this episode is on YouTube (matches Like behavior). */
+/** Prefer configured `youtubeVideoLink`, else canonical watch URL from resolved id. */
 const shareUrl = computed(() => {
-  const ytId = video.value?.youtubeVideoId
+  const link = String(video.value?.youtubeVideoLink || '').trim()
+  if (/^https?:\/\//i.test(link)) return link
+  const ytId = resolvedYoutubeVideoId.value
   if (ytId) return `https://www.youtube.com/watch?v=${ytId}`
   return window.location.href
 })
 
 const youtubeWatchUrl = computed(() => {
-  const ytId = video.value?.youtubeVideoId
+  const ytId = resolvedYoutubeVideoId.value
   return ytId ? `https://www.youtube.com/watch?v=${ytId}` : ''
 })
 
@@ -76,11 +81,11 @@ const channelDisplayStatsLine = computed(
 
 const videoStatsFromApiEnabled = computed(
   () =>
-    Boolean(video.value?.youtubeVideoId) &&
+    Boolean(resolvedYoutubeVideoId.value) &&
     !String(video.value?.youtubeStatsLine || '').trim(),
 )
 const { loading: videoStatsLoading, line: videoApiStatsLine } = useYoutubeVideoRuntimeStats(
-  () => video.value?.youtubeVideoId ?? '',
+  () => resolvedYoutubeVideoId.value,
   { enabled: videoStatsFromApiEnabled },
 )
 const videoDisplayStatsLine = computed(
@@ -89,7 +94,7 @@ const videoDisplayStatsLine = computed(
 
 async function openYoutubeWatch() {
   if (!youtubeWatchUrl.value) return
-  await openYoutubeWatchPreferApp(video.value?.youtubeVideoId)
+  await openYoutubeWatchPreferApp(resolvedYoutubeVideoId.value)
 }
 
 function isOurVideoFullscreen() {
@@ -364,7 +369,7 @@ function goBack() {
  * YouTube does not allow real like/share from our WebView; open this episode on YouTube (app on phones / new tab on desktop).
  */
 async function onLikeToggle() {
-  if (!video.value?.youtubeVideoId) return
+  if (!resolvedYoutubeVideoId.value) return
 
   liked.value = !liked.value
   await openYoutubeWatch()
@@ -374,7 +379,7 @@ async function onShare() {
   const title = video.value?.title ?? 'Video'
   const url = shareUrl.value
 
-  if (video.value?.youtubeVideoId) {
+  if (resolvedYoutubeVideoId.value) {
     await openYoutubeWatch()
     return
   }
@@ -540,8 +545,9 @@ async function onShare() {
       <div v-else-if="!showPlayer" class="watch__missing">
         <p class="watch__missing-title">No video configured</p>
         <p class="watch__missing-text">
-          Set <code>videoSrc</code> (bundled MP4, MEGA <code>/file/…</code> link) or
-          <code>youtubeVideoId</code> in <code>src/data/playlists.js</code> for this episode.
+          Set <code>videoSrc</code> (bundled MP4, MEGA <code>/file/…</code> link),
+          <code>youtubeVideoId</code>, or <code>youtubeVideoLink</code> in
+          <code>src/data/playlists.js</code> for this episode.
         </p>
       </div>
 

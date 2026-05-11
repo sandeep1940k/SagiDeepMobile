@@ -32,7 +32,7 @@ import { youtubeChannel } from '../data/youtubeChannel'
             :title="p.name"
             :video-count="p.videoCount"
             :variant="p.variant"
-            :cover-src="p.coverSrc"
+            :cover-src="p.listCoverImg"
           />
         </li>
       </ul>

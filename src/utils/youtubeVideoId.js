@@ -33,3 +33,16 @@ export function extractYoutubeVideoId(input) {
   }
   return ''
 }
+
+/**
+ * Playlist episode: use `youtubeVideoId` when it parses to an id; otherwise parse `youtubeVideoLink`
+ * (`youtu.be/…`, `youtube.com/watch?v=…`, embed, shorts, or bare 11-char id).
+ * @param {{ youtubeVideoId?: string, youtubeVideoLink?: string } | null | undefined} video
+ * @returns {string} 11-char id or ''
+ */
+export function episodeYoutubeVideoId(video) {
+  if (!video || typeof video !== 'object') return ''
+  const fromId = extractYoutubeVideoId(video.youtubeVideoId)
+  if (fromId) return fromId
+  return extractYoutubeVideoId(video.youtubeVideoLink)
+}

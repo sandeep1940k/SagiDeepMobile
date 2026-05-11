@@ -1,13 +1,14 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { getPlaylistById } from '../data/playlists'
+import { getPlaylistById, playlistListCoverImg } from '../data/playlists'
 import VideoListItem from '../components/VideoListItem.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const playlist = computed(() => getPlaylistById(route.params.id))
+const heroCoverSrc = computed(() => (playlist.value ? playlistListCoverImg(playlist.value) : ''))
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -26,8 +27,8 @@ function goBack() {
     <div class="head">
       <div class="head__thumb-wrap">
         <img
-          v-if="playlist.coverSrc"
-          :src="playlist.coverSrc"
+          v-if="heroCoverSrc"
+          :src="heroCoverSrc"
           class="head__thumb"
           :alt="playlist.name"
           loading="lazy"
@@ -49,6 +50,8 @@ function goBack() {
             :video-id="v.id"
             :title="v.title"
             :thumbnail-url="v.thumbnailUrl || ''"
+            :youtube-video-id="v.youtubeVideoId || ''"
+            :youtube-video-link="v.youtubeVideoLink || ''"
             :channel-line="v.channelLine || 'SagiDeep'"
             :duration="v.duration || ''"
           />

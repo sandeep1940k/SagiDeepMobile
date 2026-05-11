@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { isMegaFileOrEmbedUrl, isMegaNonImagePageUrl, megaFileEmbedForThumbnail } from '../utils/megaVideo.js'
+import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -9,17 +10,31 @@ const props = defineProps({
   title: { type: String, required: true },
   /** Direct image URL or MEGA `file` / `embed` link (MEGA embed iframe in thumb) */
   thumbnailUrl: { type: String, default: '' },
+  /** With `youtubeVideoLink`, used for `i.ytimg.com` when raster thumb is missing or errors */
+  youtubeVideoId: { type: String, default: '' },
+  youtubeVideoLink: { type: String, default: '' },
   channelLine: { type: String, default: 'SagiDeep' },
   duration: { type: String, default: '' },
 })
 
 const thumbRasterFailed = ref(false)
+const thumbYtFailed = ref(false)
 watch(
-  () => props.thumbnailUrl,
+  () => [props.thumbnailUrl, props.youtubeVideoId, props.youtubeVideoLink],
   () => {
     thumbRasterFailed.value = false
+    thumbYtFailed.value = false
   },
 )
+
+const youtubeThumbUrl = computed(() => {
+  const id = episodeYoutubeVideoId({
+    youtubeVideoId: props.youtubeVideoId,
+    youtubeVideoLink: props.youtubeVideoLink,
+  })
+  if (!id) return ''
+  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`
+})
 
 const megaThumbEmbedSrc = computed(() => megaFileEmbedForThumbnail(props.thumbnailUrl))
 
@@ -33,6 +48,17 @@ const showThumbRaster = computed(() => {
 
 function onThumbRasterError() {
   thumbRasterFailed.value = true
+}
+
+const showYoutubeThumb = computed(() => {
+  if (megaThumbEmbedSrc.value) return false
+  if (showThumbRaster.value) return false
+  if (!youtubeThumbUrl.value) return false
+  return !thumbYtFailed.value
+})
+
+function onThumbYtError() {
+  thumbYtFailed.value = true
 }
 </script>
 
@@ -59,6 +85,15 @@ function onThumbRasterError() {
         loading="lazy"
         decoding="async"
         @error="onThumbRasterError"
+      />
+      <img
+        v-else-if="showYoutubeThumb"
+        :src="youtubeThumbUrl"
+        class="yt-video__img"
+        :alt="title"
+        loading="lazy"
+        decoding="async"
+        @error="onThumbYtError"
       />
       <div v-else class="yt-video__placeholder" aria-hidden="true">
         <svg class="yt-video__ph-icon" viewBox="0 0 24 24" fill="currentColor">
