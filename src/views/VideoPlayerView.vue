@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { openYoutubeWatchPreferApp } from '../utils/openYoutubeWatch'
+import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
+import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { getPlaylistById, getPlaylistVideo } from '../data/playlists'
 import { youtubeChannel } from '../data/youtubeChannel'
 import {
@@ -11,6 +13,7 @@ import {
   useYoutubeVideoRuntimeStats,
 } from '../composables/useYoutubeRuntimeStats'
 import { isMegaFileOrEmbedUrl, megaToEmbedUrl } from '../utils/megaVideo'
+import { formatSubscribersDisplayLine } from '../utils/subscribersDisplay.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
 const route = useRoute()
@@ -68,16 +71,26 @@ const youtubeWatchUrl = computed(() => {
   return ytId ? `https://www.youtube.com/watch?v=${ytId}` : ''
 })
 
-const channelStatsFromApiEnabled = computed(
-  () => !String(youtubeChannel.manualStatsLine || '').trim(),
-)
+const sheetSubscribersLine = computed(() => {
+  if (!FOOTER_PROMO_SHEET_ENABLED || !footerPromoSheet.ready) return ''
+  return String(footerPromoSheet.subscribersLine || '').trim()
+})
+
+const channelStatsFromApiEnabled = computed(() => {
+  if (sheetSubscribersLine.value) return false
+  if (FOOTER_PROMO_SHEET_ENABLED) return true
+  return !String(youtubeChannel.manualStatsLine || '').trim()
+})
 const { loading: channelStatsLoading, line: channelApiStatsLine } = useYoutubeChannelRuntimeStats(
   () => youtubeChannel.handle,
   { enabled: channelStatsFromApiEnabled },
 )
-const channelDisplayStatsLine = computed(
-  () => String(youtubeChannel.manualStatsLine || '').trim() || channelApiStatsLine.value,
-)
+const channelDisplayStatsLine = computed(() => {
+  if (sheetSubscribersLine.value) return formatSubscribersDisplayLine(sheetSubscribersLine.value)
+  if (FOOTER_PROMO_SHEET_ENABLED && !footerPromoSheet.ready) return ''
+  if (FOOTER_PROMO_SHEET_ENABLED && footerPromoSheet.ready) return channelApiStatsLine.value
+  return String(youtubeChannel.manualStatsLine || '').trim() || channelApiStatsLine.value
+})
 
 const videoStatsFromApiEnabled = computed(
   () =>

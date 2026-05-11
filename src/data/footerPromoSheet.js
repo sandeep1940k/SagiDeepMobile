@@ -13,6 +13,8 @@ export const footerPromoSheet = reactive({
   videoId: '',
   title: '',
   description: '',
+  /** Column C — subscriber line for `YoutubeChannelPromo` on home (not rendered in `GlobalFooter`). */
+  subscribersLine: '',
 })
 
 function parseIsUpdate(cell) {
@@ -23,21 +25,22 @@ function parseIsUpdate(cell) {
 }
 
 /**
- * Column A = YouTube URL, B = isUpdate — or swapped (B = URL, A = checkbox column).
+ * A = YouTube URL, B = isUpdate, C = subscribers (optional) — or A = isUpdate, B = URL, C = subscribers.
  * @param {string[]} row
- * @returns {{ videoLink: string, videoId: string } | null}
+ * @returns {{ videoLink: string, videoId: string, subscribersLine: string } | null}
  */
 function pickPromoFromRow(row) {
   if (!Array.isArray(row) || row.length < 2) return null
   const c0 = String(row[0] ?? '').trim()
   const c1 = String(row[1] ?? '').trim()
+  const subscribersLine = String(row[2] ?? '').trim()
   if (parseIsUpdate(c1)) {
     const id = extractYoutubeVideoId(c0)
-    if (id) return { videoLink: c0 || `https://www.youtube.com/watch?v=${id}`, videoId: id }
+    if (id) return { videoLink: c0 || `https://www.youtube.com/watch?v=${id}`, videoId: id, subscribersLine }
   }
   if (parseIsUpdate(c0)) {
     const id = extractYoutubeVideoId(c1)
-    if (id) return { videoLink: c1 || `https://www.youtube.com/watch?v=${id}`, videoId: id }
+    if (id) return { videoLink: c1 || `https://www.youtube.com/watch?v=${id}`, videoId: id, subscribersLine }
   }
   return null
 }
@@ -49,6 +52,24 @@ function findPromoRow(rows) {
     if (picked) return picked
   }
   return null
+}
+
+/**
+ * Home channel card: prefer column C on the same row as a YouTube URL in A or B; else last column C
+ * that contains a digit (e.g. a bottom “stats” row with only `92` in C).
+ */
+function findSubscribersLineForCard(rows) {
+  let lastCWithDigit = ''
+  for (const row of rows) {
+    if (!Array.isArray(row) || row.length < 3) continue
+    const c = String(row[2] ?? '').trim()
+    if (!c) continue
+    const a = String(row[0] ?? '').trim()
+    const b = String(row[1] ?? '').trim()
+    if (extractYoutubeVideoId(a) || extractYoutubeVideoId(b)) return c
+    if (/\d/.test(c)) lastCWithDigit = c
+  }
+  return lastCWithDigit
 }
 
 async function fetchOEmbedTitle(watchUrl) {
@@ -74,9 +95,8 @@ function normalizeYoutubeWatchUrl(rawLink, videoId) {
 }
 
 /**
- * Loads the **Mobile Update** tab CSV. Footer promo turns on when some row has `isUpdate` TRUE and a
- * valid YouTube URL in the other column (A/B = URL + flag, in either order). Uses the same `parseCSV`
- * as playlists so quoted cells and newlines inside fields match Google’s export.
+ * Loads the **Mobile Update** tab CSV. Footer video promo when some row has `isUpdate` TRUE + YouTube URL.
+ * Column **C** = subscriber line for the **home channel card** (same row as video URL, or last row whose C contains a digit). Uses the same `parseCSV` as playlists.
  * If `FOOTER_PROMO_SHEET_ENABLED` is false, marks ready without fetching (UI uses static `youtubeChannel`).
  */
 export async function loadFooterPromoFromSheet() {
@@ -86,6 +106,7 @@ export async function loadFooterPromoFromSheet() {
   footerPromoSheet.videoId = ''
   footerPromoSheet.title = ''
   footerPromoSheet.description = ''
+  footerPromoSheet.subscribersLine = ''
 
   if (!FOOTER_PROMO_SHEET_ENABLED) {
     footerPromoSheet.ready = true
@@ -108,22 +129,25 @@ export async function loadFooterPromoFromSheet() {
       return
     }
 
+    const rowSubscribers = findSubscribersLineForCard(rows)
     const picked = findPromoRow(rows)
 
-    if (!picked) {
-      footerPromoSheet.ready = true
-      return
+    if (picked) {
+      footerPromoSheet.subscribersLine = String(
+        (picked.subscribersLine || '').trim() || rowSubscribers,
+      ).trim()
+      const { videoLink, videoId } = picked
+      const videoUrl = normalizeYoutubeWatchUrl(videoLink, videoId)
+      const title = (await fetchOEmbedTitle(videoUrl)) || 'Watch on YouTube'
+
+      footerPromoSheet.videoUrl = videoUrl
+      footerPromoSheet.videoId = videoId
+      footerPromoSheet.title = title
+      footerPromoSheet.description = ''
+      footerPromoSheet.active = true
+    } else {
+      footerPromoSheet.subscribersLine = String(rowSubscribers || '').trim()
     }
-
-    const { videoLink, videoId } = picked
-    const videoUrl = normalizeYoutubeWatchUrl(videoLink, videoId)
-    const title = (await fetchOEmbedTitle(videoUrl)) || 'Watch on YouTube'
-
-    footerPromoSheet.videoUrl = videoUrl
-    footerPromoSheet.videoId = videoId
-    footerPromoSheet.title = title
-    footerPromoSheet.description = ''
-    footerPromoSheet.active = true
   } catch (e) {
     console.warn('[footerPromo] sheet load failed', e)
     footerPromoSheet.active = false

@@ -1,6 +1,9 @@
 <script setup>
 import { computed, ref, toRef } from 'vue'
+import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
+import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { useYoutubeChannelRuntimeStats } from '../composables/useYoutubeRuntimeStats'
+import { formatSubscribersDisplayLine } from '../utils/subscribersDisplay.js'
 
 const props = defineProps({
   /** Channel title as shown on YouTube */
@@ -25,15 +28,24 @@ const showAvatarImage = computed(
 
 const handleWithAt = computed(() => `@${props.handle.replace(/^@/, '')}`)
 
-const apiStatsEnabled = computed(() => !String(props.manualStatsLine || '').trim())
+/** “Mobile Update” column C — shown on home when sheet fetch finished (even if footer video promo is off). */
+const sheetSubscribersLine = computed(() => {
+  if (!FOOTER_PROMO_SHEET_ENABLED || !footerPromoSheet.ready) return ''
+  return String(footerPromoSheet.subscribersLine || '').trim()
+})
+
+const apiStatsEnabled = computed(
+  () => !String(props.manualStatsLine || '').trim() && !sheetSubscribersLine.value,
+)
 const { loading: statsLoading, line: statsLine } = useYoutubeChannelRuntimeStats(
   toRef(props, 'handle'),
   { enabled: apiStatsEnabled },
 )
 
-const displayStatsLine = computed(
-  () => String(props.manualStatsLine || '').trim() || statsLine.value,
-)
+const displayStatsLine = computed(() => {
+  if (sheetSubscribersLine.value) return formatSubscribersDisplayLine(sheetSubscribersLine.value)
+  return String(props.manualStatsLine || '').trim() || statsLine.value
+})
 
 const subscribeUrl = computed(() => {
   const base = props.channelUrl.split('?')[0]

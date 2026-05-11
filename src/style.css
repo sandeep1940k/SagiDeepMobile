@@ -13,12 +13,20 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
-  background: #060508;
 }
 
+body {
+  background: #060508;
+  overflow: hidden;
+}
+
+/** Fills the viewport; `App.vue` scrolls `<main>` only so `GlobalFooter` stays fixed at the bottom. */
 #app {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }

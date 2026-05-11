@@ -1,8 +1,12 @@
 <script setup>
 import PlaylistRow from '../components/PlaylistRow.vue'
 import YoutubeChannelPromo from '../components/YoutubeChannelPromo.vue'
+import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
 import { playlistsIndex } from '../data/playlists'
 import { youtubeChannel } from '../data/youtubeChannel'
+
+/** When the Mobile Update sheet is on, subscriber text comes from column C — do not pass static manual line. */
+const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.manualStatsLine
 </script>
 
 <template>
@@ -14,7 +18,7 @@ import { youtubeChannel } from '../data/youtubeChannel'
         :handle="youtubeChannel.handle"
         :channel-url="youtubeChannel.url"
         :avatar-url="youtubeChannel.avatarUrl"
-        :manual-stats-line="youtubeChannel.manualStatsLine"
+        :manual-stats-line="channelManualStatsLine"
       />
     </header>
 

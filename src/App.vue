@@ -18,15 +18,19 @@ const showGlobalFooter = computed(() => route.name !== 'watch')
 
 <style scoped>
 .app-layout {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-layout__main {
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 </style>
