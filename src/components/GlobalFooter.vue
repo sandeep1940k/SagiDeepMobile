@@ -42,14 +42,19 @@ const promoVideoDescription = computed(() => {
   return String(youtubeChannel.footerPromoVideoDescription || '').trim()
 })
 
-const showFooterPromo = computed(() => {
-  if (!FOOTER_PROMO_SHEET_ENABLED) {
-    return Boolean(
+/** When sheet promo is off, footer uses static `youtubeChannel` fields (sheet fetch disabled only). */
+const staticPromoConfigured = computed(
+  () =>
+    Boolean(
       String(youtubeChannel.footerPromoVideoUrl || '').trim() &&
         String(youtubeChannel.footerPromoVideoId || '').trim(),
-    )
-  }
-  return sheetPromoOn.value
+    ),
+)
+
+/** Sheet on: show only if row 2 `isUpdate` is TRUE and column A is a valid YouTube URL. Sheet off: static promo. */
+const showFooterPromo = computed(() => {
+  if (FOOTER_PROMO_SHEET_ENABLED) return sheetPromoOn.value
+  return staticPromoConfigured.value
 })
 
 /** Strip invisible chars / NBSP so the pill never renders “empty” text. */

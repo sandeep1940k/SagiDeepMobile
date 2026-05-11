@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { FOOTER_PROMO_SHEET_CSV_URL, FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
+import { parseCSV } from './playlists.js'
 import { extractYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
 /** Runtime footer promo when driven by Google Sheet tab “Mobile Update”. */
@@ -14,30 +15,40 @@ export const footerPromoSheet = reactive({
   description: '',
 })
 
-function parseCsvLine(line) {
-  const out = []
-  let cur = ''
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i]
-    if (c === '"') {
-      inQuotes = !inQuotes
-    } else if (c === ',' && !inQuotes) {
-      out.push(cur.trim())
-      cur = ''
-    } else {
-      cur += c
-    }
-  }
-  out.push(cur.trim())
-  return out.map((cell) => cell.replace(/^"|"$/g, '').trim())
-}
-
 function parseIsUpdate(cell) {
   const t = String(cell ?? '')
     .trim()
     .toUpperCase()
   return t === 'TRUE' || t === '1' || t === 'YES' || t === 'Y'
+}
+
+/**
+ * Column A = YouTube URL, B = isUpdate — or swapped (B = URL, A = checkbox column).
+ * @param {string[]} row
+ * @returns {{ videoLink: string, videoId: string } | null}
+ */
+function pickPromoFromRow(row) {
+  if (!Array.isArray(row) || row.length < 2) return null
+  const c0 = String(row[0] ?? '').trim()
+  const c1 = String(row[1] ?? '').trim()
+  if (parseIsUpdate(c1)) {
+    const id = extractYoutubeVideoId(c0)
+    if (id) return { videoLink: c0 || `https://www.youtube.com/watch?v=${id}`, videoId: id }
+  }
+  if (parseIsUpdate(c0)) {
+    const id = extractYoutubeVideoId(c1)
+    if (id) return { videoLink: c1 || `https://www.youtube.com/watch?v=${id}`, videoId: id }
+  }
+  return null
+}
+
+/** First CSV row where isUpdate is true and a YouTube id is found in the paired column. */
+function findPromoRow(rows) {
+  for (const row of rows) {
+    const picked = pickPromoFromRow(row)
+    if (picked) return picked
+  }
+  return null
 }
 
 async function fetchOEmbedTitle(watchUrl) {
@@ -63,7 +74,9 @@ function normalizeYoutubeWatchUrl(rawLink, videoId) {
 }
 
 /**
- * Loads row 2 from the sheet CSV. Shows footer promo only when column B is TRUE and column A is a valid YouTube URL.
+ * Loads the **Mobile Update** tab CSV. Footer promo turns on when some row has `isUpdate` TRUE and a
+ * valid YouTube URL in the other column (A/B = URL + flag, in either order). Uses the same `parseCSV`
+ * as playlists so quoted cells and newlines inside fields match Google’s export.
  * If `FOOTER_PROMO_SHEET_ENABLED` is false, marks ready without fetching (UI uses static `youtubeChannel`).
  */
 export async function loadFooterPromoFromSheet() {
@@ -89,29 +102,20 @@ export async function loadFooterPromoFromSheet() {
     const res = await fetch(sheetUrl)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const csvText = (await res.text()).replace(/^\uFEFF/, '')
-    const lines = csvText.trim().split(/\r?\n/)
-    if (lines.length < 2) {
+    const rows = parseCSV(csvText)
+    if (rows.length === 0) {
       footerPromoSheet.ready = true
       return
     }
 
-    const row = parseCsvLine(lines[1])
-    const videoLink = String(row[0] || '').trim()
-    if (!parseIsUpdate(row[1])) {
-      footerPromoSheet.ready = true
-      return
-    }
-    if (!videoLink) {
+    const picked = findPromoRow(rows)
+
+    if (!picked) {
       footerPromoSheet.ready = true
       return
     }
 
-    const videoId = extractYoutubeVideoId(videoLink)
-    if (!videoId) {
-      footerPromoSheet.ready = true
-      return
-    }
-
+    const { videoLink, videoId } = picked
     const videoUrl = normalizeYoutubeWatchUrl(videoLink, videoId)
     const title = (await fetchOEmbedTitle(videoUrl)) || 'Watch on YouTube'
 
@@ -120,7 +124,8 @@ export async function loadFooterPromoFromSheet() {
     footerPromoSheet.title = title
     footerPromoSheet.description = ''
     footerPromoSheet.active = true
-  } catch {
+  } catch (e) {
+    console.warn('[footerPromo] sheet load failed', e)
     footerPromoSheet.active = false
   } finally {
     footerPromoSheet.ready = true
