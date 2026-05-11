@@ -44,7 +44,6 @@ import { youtubeChannel } from '../data/youtubeChannel'
 .shell {
   position: relative;
   min-height: 100%;
-  min-height: 100dvh;
   padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
   max-width: 480px;
   margin: 0 auto;

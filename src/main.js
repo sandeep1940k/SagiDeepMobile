@@ -5,8 +5,10 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { loadPlaylistsFromSheet } from './data/playlists.js'
+import { loadFooterPromoFromSheet } from './data/footerPromoSheet.js'
 
 await loadPlaylistsFromSheet()
+await loadFooterPromoFromSheet()
 
 const app = createApp(App).use(router)
 app.mount('#app')

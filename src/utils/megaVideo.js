@@ -9,6 +9,20 @@ export function isMegaFileOrEmbedUrl(url) {
 }
 
 /**
+ * MEGA **folder** / legacy **`/#!`** links are not usable as `<img src>` or as file-embed thumbnails.
+ * (`/file/` and `/embed/` use `megaFileEmbedForThumbnail` + iframe instead.)
+ * @param {string} url
+ */
+export function isMegaNonImagePageUrl(url) {
+  const s = String(url || '').trim()
+  if (!s) return false
+  if (!/https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz)\//i.test(s)) return false
+  if (/\/(?:file|embed|folder)\//i.test(s)) return true
+  if (/\/#!/.test(s)) return true
+  return false
+}
+
+/**
  * @param {string} filePageOrEmbedUrl Full MEGA file or embed URL
  * @returns {string} embed URL for iframe src, or ''
  */
@@ -18,4 +32,15 @@ export function megaToEmbedUrl(filePageOrEmbedUrl) {
   if (/\/embed\//i.test(s) && /mega\.nz/i.test(s)) return s
   if (!/\/file\//i.test(s) || !/mega\.nz/i.test(s)) return ''
   return s.replace(/\/file\//i, '/embed/')
+}
+
+/**
+ * When `coverSrc` / thumbnail is a MEGA **file** or **embed** link, use this as `<iframe src>` (not `<img>`).
+ * @param {string} url
+ * @returns {string} embed URL or ''
+ */
+export function megaFileEmbedForThumbnail(url) {
+  const s = String(url || '').trim()
+  if (!isMegaFileOrEmbedUrl(s)) return ''
+  return megaToEmbedUrl(s)
 }

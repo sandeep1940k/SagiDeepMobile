@@ -1,14 +1,39 @@
 <script setup>
+import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { isMegaFileOrEmbedUrl, isMegaNonImagePageUrl, megaFileEmbedForThumbnail } from '../utils/megaVideo.js'
 
-defineProps({
+const props = defineProps({
   playlistId: { type: String, required: true },
   videoId: { type: String, required: true },
   title: { type: String, required: true },
+  /** Direct image URL or MEGA `file` / `embed` link (MEGA embed iframe in thumb) */
   thumbnailUrl: { type: String, default: '' },
   channelLine: { type: String, default: 'SagiDeep' },
   duration: { type: String, default: '' },
 })
+
+const thumbRasterFailed = ref(false)
+watch(
+  () => props.thumbnailUrl,
+  () => {
+    thumbRasterFailed.value = false
+  },
+)
+
+const megaThumbEmbedSrc = computed(() => megaFileEmbedForThumbnail(props.thumbnailUrl))
+
+const showThumbRaster = computed(() => {
+  const src = String(props.thumbnailUrl || '').trim()
+  if (!src) return false
+  if (megaThumbEmbedSrc.value) return false
+  if (isMegaNonImagePageUrl(src) && !isMegaFileOrEmbedUrl(src)) return false
+  return !thumbRasterFailed.value
+})
+
+function onThumbRasterError() {
+  thumbRasterFailed.value = true
+}
 </script>
 
 <template>
@@ -17,13 +42,23 @@ defineProps({
     :to="{ name: 'watch', params: { playlistId, videoId } }"
   >
     <div class="yt-video__thumb">
+      <iframe
+        v-if="megaThumbEmbedSrc"
+        :src="megaThumbEmbedSrc"
+        class="yt-video__img yt-video__mega-iframe"
+        :title="`${title} thumbnail`"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        referrerpolicy="strict-origin-when-cross-origin"
+      />
       <img
-        v-if="thumbnailUrl"
+        v-else-if="showThumbRaster"
         :src="thumbnailUrl"
         class="yt-video__img"
         :alt="title"
         loading="lazy"
         decoding="async"
+        @error="onThumbRasterError"
       />
       <div v-else class="yt-video__placeholder" aria-hidden="true">
         <svg class="yt-video__ph-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -91,6 +126,12 @@ defineProps({
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.yt-video__mega-iframe {
+  border: 0;
+  pointer-events: none;
+  background: #0a0a0a;
 }
 
 .yt-video__placeholder {
