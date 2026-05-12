@@ -68,7 +68,7 @@ export function parseCSV(csvText) {
 }
 
 /** Pad CSV rows for stable indexing (trailing columns may be empty). */
-const COLS = 12
+const COLS = 15
 
 function padRow(row) {
   const out = row.slice(0, COLS)
@@ -90,6 +90,8 @@ export function rowsToPlaylistsById(rows) {
   let currentPlaylistId = ''
   let currentName = ''
   let currentIsComingSoon = false
+  let currentIsPaid = false
+  let currentAmount = ''
 
   dataRows.forEach((raw) => {
     const row = padRow(raw)
@@ -97,7 +99,10 @@ export function rowsToPlaylistsById(rows) {
       id,
       name,
       isComingSoonCell,
+      isPaidCell,
+      amountCell,
       videoId,
+      isVideoComingSoonCell,
       videoTitle,
       videoSrc,
       youtubeVideoId,
@@ -108,6 +113,8 @@ export function rowsToPlaylistsById(rows) {
     if (id) {
       currentPlaylistId = String(id).trim()
       currentIsComingSoon = parseSheetTruthy(isComingSoonCell)
+      currentIsPaid = parseSheetTruthy(isPaidCell)
+      currentAmount = String(amountCell ?? '').trim()
     }
     if (name) currentName = String(name).trim()
 
@@ -118,11 +125,15 @@ export function rowsToPlaylistsById(rows) {
         id: currentPlaylistId,
         name: currentName,
         isComingSoon: currentIsComingSoon,
+        isPaid: currentIsPaid,
+        amount: currentAmount,
         videos: [],
       }
     } else if (id) {
       playlists[currentPlaylistId].name = currentName
       playlists[currentPlaylistId].isComingSoon = currentIsComingSoon
+      playlists[currentPlaylistId].isPaid = currentIsPaid
+      playlists[currentPlaylistId].amount = currentAmount
     }
 
     if (!String(videoId || '').trim()) return
@@ -135,6 +146,7 @@ export function rowsToPlaylistsById(rows) {
       youtubeVideoLink: String(youtubeVideoLink || '').trim(),
       duration: String(duration || '').trim(),
       channelLine: 'SagiDeep',
+      isVideoComingSoon: parseSheetTruthy(isVideoComingSoonCell),
     })
   })
 
@@ -150,6 +162,7 @@ function youtubeHqDefaultThumb(videoId) {
 function lastEpisodeRasterThumb(videos) {
   if (!Array.isArray(videos) || videos.length === 0) return ''
   for (let i = videos.length - 1; i >= 0; i--) {
+    if (videos[i]?.isVideoComingSoon) continue
     const u = String(videos[i]?.youtubeVideoLink || '').trim()
     if (!u || isMegaFileOrEmbedUrl(u)) continue
     return u
@@ -160,6 +173,7 @@ function lastEpisodeRasterThumb(videos) {
 function lastEpisodeYoutubeThumb(videos) {
   if (!Array.isArray(videos) || videos.length === 0) return ''
   for (let i = videos.length - 1; i >= 0; i--) {
+    if (videos[i]?.isVideoComingSoon) continue
     const id = episodeYoutubeVideoId(videos[i])
     const url = youtubeHqDefaultThumb(id)
     if (url) return url
@@ -182,7 +196,7 @@ export function playlistListCoverImg(playlist) {
 
 function indexFromById(byId) {
   return Object.values(byId).map((p) => {
-    const { id, name, videos, isComingSoon } = p
+    const { id, name, videos, isComingSoon, isPaid, amount } = p
     return {
       id,
       name,
@@ -190,6 +204,8 @@ function indexFromById(byId) {
       variant: 'blood',
       listCoverImg: playlistListCoverImg(p),
       isComingSoon: Boolean(isComingSoon),
+      isPaid: Boolean(isPaid),
+      amount: String(amount ?? '').trim(),
     }
   })
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { isMegaFileOrEmbedUrl, isMegaNonImagePageUrl, megaFileEmbedForThumbnail } from '../utils/megaVideo.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
@@ -15,7 +15,10 @@ const props = defineProps({
   youtubeVideoLink: { type: String, default: '' },
   channelLine: { type: String, default: 'SagiDeep' },
   duration: { type: String, default: '' },
+  isVideoComingSoon: { type: Boolean, default: false },
 })
+
+const router = useRouter()
 
 const thumbRasterFailed = ref(false)
 const thumbYtFailed = ref(false)
@@ -60,12 +63,34 @@ const showYoutubeThumb = computed(() => {
 function onThumbYtError() {
   thumbYtFailed.value = true
 }
+
+function goWatch() {
+  if (props.isVideoComingSoon) return
+  router.push({
+    name: 'watch',
+    params: { playlistId: props.playlistId, videoId: props.videoId },
+  })
+}
+
+function onKeydown(e) {
+  if (props.isVideoComingSoon) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    goWatch()
+  }
+}
 </script>
 
 <template>
-  <RouterLink
+  <div
     class="yt-video"
-    :to="{ name: 'watch', params: { playlistId, videoId } }"
+    :class="{ 'yt-video--soon': isVideoComingSoon }"
+    :role="isVideoComingSoon ? 'group' : 'link'"
+    :tabindex="isVideoComingSoon ? -1 : 0"
+    :aria-disabled="isVideoComingSoon || undefined"
+    :aria-label="isVideoComingSoon ? `${title} (coming soon)` : title"
+    @click="goWatch"
+    @keydown="onKeydown"
   >
     <div class="yt-video__thumb">
       <iframe
@@ -100,8 +125,13 @@ function onThumbYtError() {
           <path d="M8 5v14l11-7z" />
         </svg>
       </div>
+      <div v-if="isVideoComingSoon" class="yt-video__veil" aria-hidden="true" />
+      <div v-if="isVideoComingSoon" class="yt-video__soon-badge" role="status">
+        <span class="yt-video__soon-line">Coming</span>
+        <span class="yt-video__soon-line">soon</span>
+      </div>
       <span v-if="duration" class="yt-video__duration">{{ duration }}</span>
-      <span class="yt-video__play-badge" aria-hidden="true">
+      <span v-if="!isVideoComingSoon" class="yt-video__play-badge" aria-hidden="true">
         <svg class="yt-video__play-ic" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z" />
         </svg>
@@ -110,9 +140,11 @@ function onThumbYtError() {
 
     <div class="yt-video__info">
       <span class="yt-video__title">{{ title }}</span>
-      <span class="yt-video__meta">{{ channelLine }}</span>
+      <span class="yt-video__meta" :class="{ 'yt-video__meta--soon': isVideoComingSoon }">{{
+        isVideoComingSoon ? 'Coming soon' : channelLine
+      }}</span>
     </div>
-  </RouterLink>
+  </div>
 </template>
 
 <style scoped>
@@ -127,11 +159,20 @@ function onThumbYtError() {
   -webkit-tap-highlight-color: transparent;
 }
 
+.yt-video:not(.yt-video--soon) {
+  cursor: pointer;
+}
+
+.yt-video--soon {
+  cursor: default;
+  opacity: 0.92;
+}
+
 .yt-video:last-of-type {
   border-bottom: none;
 }
 
-.yt-video:active {
+.yt-video:not(.yt-video--soon):active {
   background: rgba(255, 255, 255, 0.04);
   margin: 0 -8px;
   padding-left: 8px;
@@ -145,6 +186,10 @@ function onThumbYtError() {
   border-radius: 8px;
 }
 
+.yt-video--soon:focus-visible {
+  outline: none;
+}
+
 .yt-video__thumb {
   flex-shrink: 0;
   position: relative;
@@ -156,9 +201,14 @@ function onThumbYtError() {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
+.yt-video--soon .yt-video__thumb {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 .yt-video__img {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -166,9 +216,15 @@ function onThumbYtError() {
   display: block;
 }
 
+.yt-video--soon .yt-video__img,
+.yt-video--soon .yt-video__mega-iframe {
+  filter: brightness(0.9) saturate(0.88);
+}
+
 .yt-video__mega-iframe {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   border: 0;
@@ -179,6 +235,7 @@ function onThumbYtError() {
 .yt-video__placeholder {
   position: absolute;
   inset: 0;
+  z-index: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -189,6 +246,55 @@ function onThumbYtError() {
 .yt-video__ph-icon {
   width: 36px;
   height: 36px;
+}
+
+.yt-video__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+.yt-video__soon-badge {
+  position: absolute;
+  z-index: 3;
+  right: 50%;
+  bottom: 50%;
+  transform: translate(50%, 50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 72px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  pointer-events: none;
+  color: rgba(248, 246, 242, 0.96);
+  background: rgba(22, 21, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 39, 0.12),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.yt-video__soon-line {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.yt-video__soon-line + .yt-video__soon-line {
+  margin-top: 2px;
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  opacity: 0.82;
 }
 
 .yt-video__duration {
@@ -209,6 +315,7 @@ function onThumbYtError() {
 .yt-video__play-badge {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,9 +351,19 @@ function onThumbYtError() {
   overflow: hidden;
 }
 
+.yt-video--soon .yt-video__title {
+  color: #c8c4bc;
+}
+
 .yt-video__meta {
   font-size: 12px;
   color: #aaa;
   line-height: 1.3;
+}
+
+.yt-video__meta--soon {
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: #b8a990;
 }
 </style>

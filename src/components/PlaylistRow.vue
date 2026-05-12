@@ -1,7 +1,9 @@
 <script setup>
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { premiumThumbChip } from '../utils/premiumUnlock.js'
 
-defineProps({
+const props = defineProps({
   playlistId: { type: String, required: true },
   title: { type: String, required: true },
   videoCount: { type: Number, required: true },
@@ -13,13 +15,27 @@ defineProps({
     validator: (v) => ['blood', 'gold', 'ash'].includes(v),
   },
   comingSoon: { type: Boolean, default: false },
+  isPaid: { type: Boolean, default: false },
+  paidAmount: { type: String, default: '' },
 })
-</script>
 
+const premiumChipText = computed(() => premiumThumbChip(props.paidAmount))
+const videoCountLabel = computed(() =>
+  props.videoCount === 1 ? '1 video' : `${props.videoCount} videos`,
+)
+</script>
 <template>
-  <div class="yt-row" :class="{ 'yt-row--soon': comingSoon }">
+  <div
+    class="yt-row"
+    :class="{ 'yt-row--soon': comingSoon, 'yt-row--paid': isPaid && !comingSoon }"
+  >
     <RouterLink :to="{ name: 'playlist', params: { id: playlistId } }" class="yt-row__main">
-      <div class="yt-thumb" :class="{ 'yt-thumb--soon': comingSoon }" :data-variant="variant" aria-hidden="true">
+      <div
+        class="yt-thumb"
+        :class="{ 'yt-thumb--soon': comingSoon }"
+        :data-variant="variant"
+        aria-hidden="true"
+      >
         <img
           v-if="coverSrc"
           :src="coverSrc"
@@ -35,6 +51,9 @@ defineProps({
           <span class="yt-thumb__cell yt-thumb__cell--4" />
         </div>
         <div v-if="comingSoon" class="yt-thumb__veil" />
+        <div v-if="isPaid && !comingSoon" class="yt-thumb__premium-badge">
+          <span class="yt-thumb__premium-chip">{{ premiumChipText }}</span>
+        </div>
         <div v-if="comingSoon" class="yt-thumb__badge yt-thumb__badge--soon" role="status">
           <span class="yt-thumb__soon-line">Coming</span>
           <span class="yt-thumb__soon-line">soon</span>
@@ -43,13 +62,14 @@ defineProps({
           <svg class="yt-thumb__play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M8 5v14l11-7z" />
           </svg>
-          <span>{{ videoCount }} videos</span>
+          <span>{{ videoCountLabel }}</span>
         </div>
       </div>
 
       <div class="yt-row__text">
         <span class="yt-row__title">{{ title }}</span>
         <span v-if="comingSoon" class="yt-row__meta yt-row__meta--soon">Coming soon</span>
+        <span v-else-if="isPaid" class="yt-row__meta yt-row__meta--paid">Unlock to watch</span>
         <span v-else class="yt-row__meta">Playlist · Public</span>
       </div>
     </RouterLink>
@@ -87,6 +107,16 @@ defineProps({
 }
 
 .yt-row--soon .yt-row__text {
+  padding-top: 0;
+  justify-content: center;
+  min-height: 68px;
+}
+
+.yt-row--paid .yt-row__main {
+  align-items: center;
+}
+
+.yt-row--paid .yt-row__text {
   padding-top: 0;
   justify-content: center;
   min-height: 68px;
@@ -271,6 +301,45 @@ defineProps({
   opacity: 0.82;
 }
 
+.yt-thumb__premium-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  max-width: calc(100% - 8px);
+  padding: 3px 7px;
+  border-radius: 6px;
+  pointer-events: none;
+  background: rgba(8, 8, 10, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.yt-thumb__premium-chip {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  color: rgba(245, 240, 230, 0.94);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-row--paid {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.yt-row--paid:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .yt-thumb__play {
   width: 14px;
   height: 14px;
@@ -310,6 +379,13 @@ defineProps({
   font-weight: 500;
   letter-spacing: 0.04em;
   color: #b8a990;
+}
+
+.yt-row__meta--paid {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: #9a948a;
 }
 
 </style>

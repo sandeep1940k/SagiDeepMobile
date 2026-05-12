@@ -3,11 +3,14 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getPlaylistById, playlistListCoverImg } from '../data/playlists'
 import VideoListItem from '../components/VideoListItem.vue'
+import { premiumPriceCompact, premiumThumbChip } from '../utils/premiumUnlock.js'
 
 const route = useRoute()
 const router = useRouter()
 
 const playlist = computed(() => getPlaylistById(route.params.id))
+const premiumChipText = computed(() => premiumThumbChip(playlist.value?.amount))
+const premiumPriceShort = computed(() => premiumPriceCompact(playlist.value?.amount))
 const heroCoverSrc = computed(() => {
   const p = playlist.value
   if (!p || p.isComingSoon) return ''
@@ -28,7 +31,13 @@ function goBack() {
       <button type="button" class="top__back" @click="goBack">‹ Back</button>
     </header>
 
-    <div class="head" :class="{ 'head--soon': playlist.isComingSoon }">
+    <div
+      class="head"
+      :class="{
+        'head--soon': playlist.isComingSoon,
+        'head--paid': playlist.isPaid && !playlist.isComingSoon,
+      }"
+    >
       <div class="head__thumb-wrap">
         <img
           v-if="heroCoverSrc"
@@ -42,6 +51,13 @@ function goBack() {
           class="head__thumb head__thumb--placeholder"
           :class="{ 'head__thumb--soon-ph': playlist.isComingSoon }"
         />
+        <div
+          v-if="playlist.isPaid && !playlist.isComingSoon"
+          class="head__premium-badge"
+          aria-hidden="true"
+        >
+          <span class="head__premium-chip">{{ premiumChipText }}</span>
+        </div>
         <div v-if="playlist.isComingSoon" class="head__soon-veil" aria-hidden="true">
           <span class="head__soon-chip" role="status">
             <span class="head__soon-chip-line">Coming</span>
@@ -51,9 +67,17 @@ function goBack() {
       </div>
       <div class="head__text">
         <h1 class="head__title">{{ playlist.name }}</h1>
+        <p
+          v-if="playlist.isPaid && !playlist.isComingSoon"
+          class="head__premium-note"
+        >
+          Unlock to watch
+        </p>
         <p class="head__meta">
           <template v-if="playlist.isComingSoon">Episodes arrive soon · Stay tuned</template>
-          <template v-else>{{ playlist.videos.length }} videos · Playlist</template>
+          <template v-else>
+            {{ playlist.videos.length === 1 ? '1 video' : `${playlist.videos.length} videos` }} · Playlist
+          </template>
         </p>
       </div>
     </div>
@@ -71,6 +95,7 @@ function goBack() {
             :youtube-video-link="v.youtubeVideoLink || ''"
             :channel-line="v.channelLine"
             :duration="v.duration || ''"
+            :is-video-coming-soon="Boolean(v.isVideoComingSoon)"
           />
         </li>
       </ul>
@@ -81,6 +106,13 @@ function goBack() {
         <h2 id="soon-heading" class="soon__title">Not available yet</h2>
         <p class="soon__copy">
           This playlist is still being prepared. Episodes will appear here once they are ready.
+          <template v-if="playlist.isPaid">
+            <br />
+            <span class="soon__paid-hint">
+              <template v-if="premiumPriceShort">{{ premiumPriceShort }} when available.</template>
+              <template v-else>Paid access when available.</template>
+            </span>
+          </template>
         </p>
       </div>
     </section>
@@ -183,13 +215,42 @@ function goBack() {
   background: #222;
 }
 
+.head__premium-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 3;
+  max-width: calc(100% - 10px);
+  padding: 3px 7px;
+  border-radius: 6px;
+  pointer-events: none;
+  background: rgba(8, 8, 10, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.head__premium-chip {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  color: rgba(245, 240, 230, 0.94);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .head__text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .head__title {
@@ -198,6 +259,14 @@ function goBack() {
   font-weight: 700;
   line-height: 1.25;
   color: #fff;
+}
+
+.head__premium-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #9a948a;
 }
 
 .head__meta {
@@ -236,6 +305,10 @@ function goBack() {
   color: #3ea6ff;
   font-weight: 600;
   text-decoration: none;
+}
+
+.head--paid {
+  align-items: center;
 }
 
 .head--soon {
@@ -332,5 +405,14 @@ function goBack() {
   font-size: 14px;
   line-height: 1.55;
   color: #9c968a;
+}
+
+.soon__paid-hint {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c9a227;
+  letter-spacing: 0.02em;
 }
 </style>

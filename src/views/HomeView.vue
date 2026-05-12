@@ -38,6 +38,8 @@ const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.
             :variant="p.variant"
             :cover-src="p.listCoverImg"
             :coming-soon="p.isComingSoon"
+            :is-paid="p.isPaid"
+            :paid-amount="p.amount"
           />
         </li>
       </ul>
