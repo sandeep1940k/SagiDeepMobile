@@ -52,7 +52,7 @@ function goBack() {
             :thumbnail-url="v.thumbnailUrl || ''"
             :youtube-video-id="v.youtubeVideoId || ''"
             :youtube-video-link="v.youtubeVideoLink || ''"
-            :channel-line="v.channelLine || 'SagiDeep'"
+            :channel-line="v.channelLine"
             :duration="v.duration || ''"
           />
         </li>
@@ -132,19 +132,24 @@ function goBack() {
 }
 
 .head__thumb-wrap {
+  position: relative;
   flex-shrink: 0;
   width: 120px;
   aspect-ratio: 16 / 9;
   border-radius: 10px;
   overflow: hidden;
+  background: #1a1a1a;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 .head__thumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center center;
   display: block;
 }
 

@@ -92,18 +92,12 @@ const channelDisplayStatsLine = computed(() => {
   return String(youtubeChannel.manualStatsLine || '').trim() || channelApiStatsLine.value
 })
 
-const videoStatsFromApiEnabled = computed(
-  () =>
-    Boolean(resolvedYoutubeVideoId.value) &&
-    !String(video.value?.youtubeStatsLine || '').trim(),
-)
+const videoStatsFromApiEnabled = computed(() => Boolean(resolvedYoutubeVideoId.value))
 const { loading: videoStatsLoading, line: videoApiStatsLine } = useYoutubeVideoRuntimeStats(
   () => resolvedYoutubeVideoId.value,
   { enabled: videoStatsFromApiEnabled },
 )
-const videoDisplayStatsLine = computed(
-  () => String(video.value?.youtubeStatsLine || '').trim() || videoApiStatsLine.value,
-)
+const videoDisplayStatsLine = computed(() => videoApiStatsLine.value)
 
 async function openYoutubeWatch() {
   if (!youtubeWatchUrl.value) return

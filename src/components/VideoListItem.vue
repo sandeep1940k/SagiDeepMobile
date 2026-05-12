@@ -33,7 +33,7 @@ const youtubeThumbUrl = computed(() => {
     youtubeVideoLink: props.youtubeVideoLink,
   })
   if (!id) return ''
-  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`
+  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`
 })
 
 const megaThumbEmbedSrc = computed(() => megaFileEmbedForThumbnail(props.thumbnailUrl))
@@ -157,21 +157,28 @@ function onThumbYtError() {
 }
 
 .yt-video__img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
   display: block;
 }
 
 .yt-video__mega-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border: 0;
   pointer-events: none;
   background: #0a0a0a;
 }
 
 .yt-video__placeholder {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;

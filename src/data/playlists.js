@@ -4,10 +4,9 @@
  * to skip the fetch (playlists stay empty).
  *
  * `videoSrc`: bundled `/videos/…`, MEGA `https://mega.nz/file/…#…`, or empty with YouTube fields.
- * Episodes: `youtubeVideoId` and/or optional column **`youtubeVideoLink`** (13th CSV column).
+ * Episodes: `youtubeVideoId` and trailing `youtubeVideoLink` (after `duration`).
  *
- * **List / header art:** `playlistListCoverImg()` — last episode YouTube `i.ytimg.com` thumb, else raster,
- * else `coverSrc`.
+ * **List / header art:** `playlistListCoverImg()` — last episode YouTube `i.ytimg.com` thumb, else raster link.
  */
 import { isMegaFileOrEmbedUrl } from '../utils/megaVideo.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
@@ -68,8 +67,8 @@ export function parseCSV(csvText) {
   return rows
 }
 
-/** 12 base columns + optional `youtubeVideoLink` (column M). */
-const COLS = 13
+/** Pad CSV rows for stable indexing (trailing columns may be empty). */
+const COLS = 12
 
 function padRow(row) {
   const out = row.slice(0, COLS)
@@ -85,45 +84,22 @@ export function rowsToPlaylistsById(rows) {
 
   let currentPlaylistId = ''
   let currentName = ''
-  let currentVariant = ''
-  let currentCoverSrc = ''
 
   dataRows.forEach((raw) => {
     const row = padRow(raw)
     const [
       id,
       name,
-      variant,
-      coverSrc,
       videoId,
       videoTitle,
       videoSrc,
       youtubeVideoId,
-      youtubeStatsLine,
       duration,
-      channelLine,
       youtubeVideoLink,
     ] = row
 
     if (id) currentPlaylistId = String(id).trim()
     if (name) currentName = String(name).trim()
-    if (variant) currentVariant = String(variant).trim()
-
-    const coverCell = String(coverSrc || '').trim()
-    if (coverCell) {
-      let c = coverCell
-      if (c.includes('%23') && /mega\.nz\/file\//i.test(c)) {
-        try {
-          c = decodeURIComponent(c)
-        } catch {
-          /* keep c */
-        }
-      }
-      currentCoverSrc = c
-      if (currentPlaylistId && playlists[currentPlaylistId]) {
-        playlists[currentPlaylistId].coverSrc = currentCoverSrc
-      }
-    }
 
     if (!currentPlaylistId || !String(videoId || '').trim()) return
 
@@ -131,8 +107,6 @@ export function rowsToPlaylistsById(rows) {
       playlists[currentPlaylistId] = {
         id: currentPlaylistId,
         name: currentName,
-        variant: currentVariant,
-        coverSrc: currentCoverSrc,
         videos: [],
       }
     }
@@ -143,9 +117,8 @@ export function rowsToPlaylistsById(rows) {
       videoSrc: String(videoSrc || '').trim(),
       youtubeVideoId: String(youtubeVideoId || '').trim(),
       youtubeVideoLink: String(youtubeVideoLink || '').trim(),
-      youtubeStatsLine: String(youtubeStatsLine || '').trim(),
       duration: String(duration || '').trim(),
-      channelLine: String(channelLine || '').trim(),
+      channelLine: 'SagiDeep',
     })
   })
 
@@ -155,7 +128,7 @@ export function rowsToPlaylistsById(rows) {
 function youtubeHqDefaultThumb(videoId) {
   const id = String(videoId || '').trim()
   if (!id) return ''
-  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`
+  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`
 }
 
 function lastEpisodeRasterThumb(videos) {
@@ -180,7 +153,7 @@ function lastEpisodeYoutubeThumb(videos) {
 
 /**
  * Image URL for home playlist row and playlist detail header (latest episode first when possible).
- * @param {{ coverSrc?: string, videos?: unknown[] } | null | undefined} playlist
+ * @param {{ videos?: unknown[] } | null | undefined} playlist
  */
 export function playlistListCoverImg(playlist) {
   const videos = playlist?.videos
@@ -188,18 +161,17 @@ export function playlistListCoverImg(playlist) {
   if (fromYt) return fromYt
   const raster = lastEpisodeRasterThumb(Array.isArray(videos) ? videos : [])
   if (raster) return raster
-  return String(playlist?.coverSrc || '').trim()
+  return ''
 }
 
 function indexFromById(byId) {
   return Object.values(byId).map((p) => {
-    const { id, name, variant, coverSrc, videos } = p
+    const { id, name, videos } = p
     return {
       id,
       name,
       videoCount: videos.length,
-      variant,
-      coverSrc,
+      variant: 'blood',
       listCoverImg: playlistListCoverImg(p),
     }
   })

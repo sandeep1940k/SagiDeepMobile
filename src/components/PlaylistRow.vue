@@ -100,19 +100,23 @@ defineProps({
 }
 
 .yt-thumb__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center center;
   display: block;
 }
 
 .yt-thumb__grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  width: 100%;
-  height: 100%;
   gap: 1px;
   background: rgba(0, 0, 0, 0.45);
 }
@@ -163,6 +167,7 @@ defineProps({
 
 .yt-thumb__badge {
   position: absolute;
+  z-index: 1;
   right: 4px;
   bottom: 4px;
   display: inline-flex;
