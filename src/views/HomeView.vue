@@ -1,30 +1,14 @@
 <script setup>
 import PlaylistRow from '../components/PlaylistRow.vue'
-import YoutubeChannelPromo from '../components/YoutubeChannelPromo.vue'
-import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
 import { playlistsIndex } from '../data/playlists'
-import { youtubeChannel } from '../data/youtubeChannel'
 import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
-
-/** When the Mobile Update sheet is on, subscriber text comes from column C — do not pass static manual line. */
-const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.manualStatsLine
 </script>
 
 <template>
   <div class="shell">
     <div class="shell__glow" aria-hidden="true" />
-    <header class="hero" aria-label="YouTube channel">
-      <YoutubeChannelPromo
-        :display-name="youtubeChannel.displayName"
-        :handle="youtubeChannel.handle"
-        :channel-url="youtubeChannel.url"
-        :avatar-url="youtubeChannel.avatarUrl"
-        :manual-stats-line="channelManualStatsLine"
-      />
-    </header>
 
-    <section class="vault" aria-label="Playlists">
-      <div class="vault__head">
+    <section class="vault" aria-label="Playlists">      <div class="vault__head">
         <h2 class="vault__label">Playlists</h2>
         <span class="vault__count">{{
           playlistsIndex.length === 1 ? '1 list' : `${playlistsIndex.length} lists`
@@ -53,7 +37,7 @@ const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.
 .shell {
   position: relative;
   min-height: 100%;
-  padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: 12px 16px max(28px, env(safe-area-inset-bottom));
   max-width: 480px;
   margin: 0 auto;
   box-sizing: border-box;
@@ -73,14 +57,9 @@ const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.
   z-index: 0;
 }
 
-.hero,
 .vault {
   position: relative;
   z-index: 1;
-}
-
-.hero {
-  margin-bottom: 22px;
 }
 
 .vault__head {

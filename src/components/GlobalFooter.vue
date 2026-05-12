@@ -1,9 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
+import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { youtubeChannel } from '../data/youtubeChannel'
 
+/** Sheet I/J/K row loaded and should drive the footer (video id + url present). */
 const sheetPromoOn = computed(
   () =>
     FOOTER_PROMO_SHEET_ENABLED &&
@@ -13,6 +14,23 @@ const sheetPromoOn = computed(
     Boolean(String(footerPromoSheet.videoUrl || '').trim()),
 )
 
+const staticPromoConfigured = computed(
+  () =>
+    Boolean(
+      String(youtubeChannel.footerPromoVideoUrl || '').trim() &&
+        String(youtubeChannel.footerPromoVideoId || '').trim(),
+    ),
+)
+
+/**
+ * Show footer: sheet-driven promo when the web app returns a valid row; otherwise only static promo
+ * when the sheet feature is **off** (so we never show the wrong static video while the sheet is on).
+ */
+const showFooterPromo = computed(() => {
+  if (FOOTER_PROMO_SHEET_ENABLED) return sheetPromoOn.value
+  return staticPromoConfigured.value
+})
+
 const promoId = computed(() => {
   if (sheetPromoOn.value) return String(footerPromoSheet.videoId || '').trim()
   return String(youtubeChannel.footerPromoVideoId || '').trim()
@@ -20,8 +38,7 @@ const promoId = computed(() => {
 
 const promoUrl = computed(() => {
   if (sheetPromoOn.value) return String(footerPromoSheet.videoUrl || '').trim()
-  if (!FOOTER_PROMO_SHEET_ENABLED) return String(youtubeChannel.footerPromoVideoUrl || '').trim()
-  return ''
+  return String(youtubeChannel.footerPromoVideoUrl || '').trim()
 })
 
 const promoThumbSrc = computed(() => {
@@ -31,8 +48,9 @@ const promoThumbSrc = computed(() => {
 })
 
 const promoVideoTitle = computed(() => {
-  if (sheetPromoOn.value && String(footerPromoSheet.title || '').trim()) {
-    return String(footerPromoSheet.title).trim()
+  if (sheetPromoOn.value) {
+    const t = String(footerPromoSheet.title || '').trim()
+    return t || 'Watch on YouTube'
   }
   return String(youtubeChannel.footerPromoVideoTitle || '').trim() || 'Watch on YouTube'
 })
@@ -40,21 +58,6 @@ const promoVideoTitle = computed(() => {
 const promoVideoDescription = computed(() => {
   if (sheetPromoOn.value) return String(footerPromoSheet.description || '').trim()
   return String(youtubeChannel.footerPromoVideoDescription || '').trim()
-})
-
-/** When sheet promo is off, footer uses static `youtubeChannel` fields (sheet fetch disabled only). */
-const staticPromoConfigured = computed(
-  () =>
-    Boolean(
-      String(youtubeChannel.footerPromoVideoUrl || '').trim() &&
-        String(youtubeChannel.footerPromoVideoId || '').trim(),
-    ),
-)
-
-/** Sheet on: show only if row 2 `isUpdate` is TRUE and column A is a valid YouTube URL. Sheet off: static promo. */
-const showFooterPromo = computed(() => {
-  if (FOOTER_PROMO_SHEET_ENABLED) return sheetPromoOn.value
-  return staticPromoConfigured.value
 })
 
 /** Strip invisible chars / NBSP so the pill never renders “empty” text. */

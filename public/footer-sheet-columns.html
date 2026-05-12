@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sheet columns I, J, K — Web App test</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #121212;
+        --card: #1e1e1e;
+        --border: rgba(255, 255, 255, 0.1);
+        --muted: #9a9a9a;
+        --accent: #c9a227;
+        --ok: #4caf50;
+        --err: #e57373;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, Segoe UI, Roboto, sans-serif;
+        background: var(--bg);
+        color: #e8e4dc;
+        min-height: 100vh;
+        padding: 20px 16px 40px;
+        max-width: 520px;
+        margin-inline: auto;
+      }
+      h1 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+      .hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.45;
+        margin-bottom: 18px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #b8b4ac;
+        margin-bottom: 4px;
+      }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #0a0a0a;
+        color: #f1f1f1;
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+      }
+      button {
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        background: linear-gradient(180deg, #ecd489 0%, #c9a227 55%, #a88620 100%);
+        color: #1a1508;
+        margin-top: 4px;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 0.68rem;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(201, 162, 39, 0.15);
+        color: #e8d9a8;
+        margin-bottom: 10px;
+      }
+      .cols {
+        display: grid;
+        gap: 10px;
+      }
+      .col {
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border);
+      }
+      .col h2 {
+        margin: 0 0 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--accent);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .col pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.82rem;
+        line-height: 1.4;
+        color: #ddd;
+      }
+      #status {
+        font-size: 0.8rem;
+        margin-top: 12px;
+        min-height: 1.2em;
+      }
+      #status.ok {
+        color: var(--ok);
+      }
+      #status.err {
+        color: var(--err);
+      }
+      #raw {
+        margin-top: 14px;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      #raw pre {
+        margin: 6px 0 0;
+        padding: 10px;
+        border-radius: 8px;
+        background: #0a0a0a;
+        border: 1px solid var(--border);
+        overflow: auto;
+        max-height: 200px;
+        font-size: 0.7rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sheet columns I, J, K</h1>
+    <p class="hint">
+      POST <code>action: "footerMobileUpdate"</code> to your Apps Script Web App, then show the three values. On
+      <strong>Vite dev</strong> (<code>localhost:5173</code>), requests go through the dev proxy to avoid CORS. Open this
+      page as <code>http://localhost:5173/footer-sheet-columns.html</code> while <code>npm run dev</code> is running.
+    </p>
+
+    <div class="card">
+      <span class="pill" id="targetPill">POST target</span>
+      <label for="execUrl">Web App /exec URL (from <code>config.js</code> <code>SHEET_URL</code>)</label>
+      <input
+        id="execUrl"
+        type="url"
+        autocomplete="off"
+        value="https://script.google.com/macros/s/AKfycbwMIC7qdVAQEmjFMA_r_p0s06quUd5FDt2jx3A-hFvTifKXzsU4zTUeRRekldv3T1Xl/exec"
+      />
+      <label for="action">Action</label>
+      <input id="action" type="text" value="footerMobileUpdate" />
+      <button type="button" id="btn">Fetch columns I, J, K</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="card cols" id="results" hidden>
+      <div class="col">
+        <h2>Column I — video link</h2>
+        <pre id="colI">—</pre>
+      </div>
+      <div class="col">
+        <h2>Column J — is mobile update</h2>
+        <pre id="colJ">—</pre>
+      </div>
+      <div class="col">
+        <h2>Column K — subscribers</h2>
+        <pre id="colK">—</pre>
+      </div>
+    </div>
+
+    <div id="raw" hidden>
+      Raw JSON
+      <pre id="rawJson"></pre>
+    </div>
+
+    <script>
+      const DEFAULT_EXEC =
+        'https://script.google.com/macros/s/AKfycbwMIC7qdVAQEmjFMA_r_p0s06quUd5FDt2jx3A-hFvTifKXzsU4zTUeRRekldv3T1Xl/exec'
+      const PROXY_PATH = '/__sagideep_sheet_auth'
+
+      function isLocalVite() {
+        const h = location.hostname
+        return h === 'localhost' || h === '127.0.0.1'
+      }
+
+      function postUrl() {
+        if (isLocalVite()) return location.origin + PROXY_PATH
+        const u = document.getElementById('execUrl').value.trim()
+        return u || DEFAULT_EXEC
+      }
+
+      function unwrap(d) {
+        if (d && typeof d === 'object' && d.data && typeof d.data === 'object') return d.data
+        return d
+      }
+
+      /** Map JSON to sheet columns I, J, K (supports several Apps Script shapes). */
+      function ijkFromJson(d) {
+        const o = unwrap(d) || {}
+        const colI = String(o.columnI ?? o.mobileUpdateVideoLink ?? o.videoLink ?? '').trim()
+        const colJ = o.columnJ ?? o.isMobileUpdate ?? ''
+        const colK = String(o.columnK ?? o.subscribes ?? o.subscribers ?? '').trim()
+        return { colI, colJ, colK }
+      }
+
+      function setPill() {
+        const el = document.getElementById('targetPill')
+        el.textContent = isLocalVite() ? 'POST → ' + PROXY_PATH + ' (Vite proxy → script.google.com)' : 'POST → full /exec URL (CORS must allow this origin)'
+      }
+
+      document.getElementById('btn').addEventListener('click', async () => {
+        const btn = document.getElementById('btn')
+        const status = document.getElementById('status')
+        const results = document.getElementById('results')
+        const raw = document.getElementById('raw')
+        const action = document.getElementById('action').value.trim() || 'footerMobileUpdate'
+        btn.disabled = true
+        status.className = ''
+        status.textContent = 'Loading…'
+        results.hidden = true
+        raw.hidden = true
+        try {
+          const url = postUrl()
+          const res = await fetch(url, {
+            method: 'POST',
+            cache: 'no-store',
+            body: JSON.stringify({ action }),
+          })
+          const text = await res.text()
+          let data
+          try {
+            data = JSON.parse(text)
+          } catch {
+            throw new Error('Not JSON: ' + text.slice(0, 200))
+          }
+          const { colI, colJ, colK } = ijkFromJson(data)
+          document.getElementById('colI').textContent = colI || '(empty)'
+          document.getElementById('colJ').textContent =
+            colJ === '' || colJ === undefined || colJ === null ? '(empty)' : String(colJ)
+          document.getElementById('colK').textContent = colK || '(empty)'
+          document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2)
+          results.hidden = false
+          raw.hidden = false
+          status.className = 'ok'
+          status.textContent = 'OK — HTTP ' + res.status
+        } catch (e) {
+          status.className = 'err'
+          status.textContent = String(e.message || e)
+        } finally {
+          btn.disabled = false
+        }
+      })
+
+      setPill()
+    </script>
+  </body>
+</html>

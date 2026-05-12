@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, toRef } from 'vue'
-import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
+import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { useYoutubeChannelRuntimeStats } from '../composables/useYoutubeRuntimeStats'
 import { formatSubscribersDisplayLine } from '../utils/subscribersDisplay.js'
@@ -93,9 +93,10 @@ function handleAvatarError() {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(28, 28, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 .yt-promo__profile {

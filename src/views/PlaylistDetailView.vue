@@ -167,7 +167,7 @@ function goBack() {
 .shell {
   position: relative;
   min-height: 100%;
-  padding: max(12px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: 10px 16px max(28px, env(safe-area-inset-bottom));
   max-width: 480px;
   margin: 0 auto;
   box-sizing: border-box;
