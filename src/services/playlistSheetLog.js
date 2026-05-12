@@ -3,9 +3,10 @@
  *
  * URL: `src/config/playlistSheetLogUrl.js` → PLAYLIST_SHEET_LOG_URL
  *
- * Sheet tab: Sheet1. Three columns (A–C):
- *   - Mobile app: ip | playlist name | readable time (see formatLogTime_ below)
- *   - HTML test form (name/email): name | email | readable time
+ * Sheet tab: Sheet1. Five columns (A–E): Name | Email | IP Address | Playlist Name | Time
+ *   - Mobile app: writes C–E (A–B left blank on new row). If column C already has the same IP,
+ *     only column E is updated (no new row).
+ *   - HTML test form (name/email): name | email | (blank) | (blank) | time — always a new row
  *
  * App sends `time` as local device string: `10-5-2026 11:13 PM` (day-month-year, 12h) via formatDateTime().
  *
@@ -24,6 +25,19 @@
  *     return t;
  *   }
  *
+ *   // findRowByIp_: returns 1-based row index, or 0 if IP not in column C
+ *   function findRowByIp_(sheet, ip) {
+ *     var t = String(ip || '').trim();
+ *     if (!t) return 0;
+ *     var last = sheet.getLastRow();
+ *     if (last < 2) return 0;
+ *     var values = sheet.getRange(2, 3, last, 3).getValues();
+ *     for (var i = 0; i < values.length; i++) {
+ *       if (String(values[i][0] || '').trim() === t) return i + 2;
+ *     }
+ *     return 0;
+ *   }
+ *
  *   function doPost(e) {
  *     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1');
  *     var p = e.parameter;
@@ -35,9 +49,16 @@
  *       || Object.prototype.hasOwnProperty.call(p, 'playlistid');
  *     if (fromApp) {
  *       var pl = p.playlistname || p.playlist || p.playlistName || '';
- *       sheet.appendRow([p.ip || '', pl, timeCell_(p)]);
+ *       var ipVal = p.ip || '';
+ *       var timeVal = timeCell_(p);
+ *       var row = findRowByIp_(sheet, ipVal);
+ *       if (row > 0) {
+ *         sheet.getRange(row, 5).setValue(timeVal);
+ *       } else {
+ *         sheet.appendRow(['', '', ipVal, pl, timeVal]);
+ *       }
  *     } else {
- *       sheet.appendRow([p.name || '', p.email || '', timeCell_(p)]);
+ *       sheet.appendRow([p.name || '', p.email || '', '', '', timeCell_(p)]);
  *     }
  *     return ContentService.createTextOutput('Success');
  *   }
