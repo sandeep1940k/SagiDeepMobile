@@ -17,6 +17,8 @@ const props = defineProps({
   comingSoon: { type: Boolean, default: false },
   isPaid: { type: Boolean, default: false },
   paidAmount: { type: String, default: '' },
+  /** Paid list not unlocked on device — hide play icon on row thumb */
+  premiumLocked: { type: Boolean, default: false },
 })
 
 const premiumChipText = computed(() => premiumThumbChip(props.paidAmount))
@@ -58,8 +60,14 @@ const videoCountLabel = computed(() =>
           <span class="yt-thumb__soon-line">Coming</span>
           <span class="yt-thumb__soon-line">soon</span>
         </div>
-        <div v-else class="yt-thumb__badge">
-          <svg class="yt-thumb__play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <div v-else class="yt-thumb__badge" :class="{ 'yt-thumb__badge--noplay': premiumLocked }">
+          <svg
+            v-if="!premiumLocked"
+            class="yt-thumb__play"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
             <path d="M8 5v14l11-7z" />
           </svg>
           <span>{{ videoCountLabel }}</span>
@@ -258,6 +266,11 @@ const videoCountLabel = computed(() =>
   color: #fff;
   background: rgba(0, 0, 0, 0.82);
   line-height: 1.2;
+}
+
+.yt-thumb__badge--noplay {
+  gap: 0;
+  padding: 2px 8px;
 }
 
 .yt-thumb__badge--soon {

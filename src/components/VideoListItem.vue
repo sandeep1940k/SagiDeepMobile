@@ -16,6 +16,8 @@ const props = defineProps({
   channelLine: { type: String, default: 'SagiDeep' },
   duration: { type: String, default: '' },
   isVideoComingSoon: { type: Boolean, default: false },
+  /** Paid playlist not yet unlocked — no play / no navigation (same gating as player). */
+  playlistPremiumLocked: { type: Boolean, default: false },
 })
 
 const router = useRouter()
@@ -64,8 +66,16 @@ function onThumbYtError() {
   thumbYtFailed.value = true
 }
 
+const blockedPlay = computed(() => props.isVideoComingSoon || props.playlistPremiumLocked)
+
+const metaLine = computed(() => {
+  if (props.isVideoComingSoon) return 'Coming soon'
+  if (props.playlistPremiumLocked) return 'Unlock to watch'
+  return props.channelLine
+})
+
 function goWatch() {
-  if (props.isVideoComingSoon) return
+  if (blockedPlay.value) return
   router.push({
     name: 'watch',
     params: { playlistId: props.playlistId, videoId: props.videoId },
@@ -73,7 +83,7 @@ function goWatch() {
 }
 
 function onKeydown(e) {
-  if (props.isVideoComingSoon) return
+  if (blockedPlay.value) return
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     goWatch()
@@ -84,11 +94,13 @@ function onKeydown(e) {
 <template>
   <div
     class="yt-video"
-    :class="{ 'yt-video--soon': isVideoComingSoon }"
-    :role="isVideoComingSoon ? 'group' : 'link'"
-    :tabindex="isVideoComingSoon ? -1 : 0"
-    :aria-disabled="isVideoComingSoon || undefined"
-    :aria-label="isVideoComingSoon ? `${title} (coming soon)` : title"
+    :class="{ 'yt-video--soon': isVideoComingSoon, 'yt-video--premium-lock': playlistPremiumLocked }"
+    :role="blockedPlay ? 'group' : 'link'"
+    :tabindex="blockedPlay ? -1 : 0"
+    :aria-disabled="blockedPlay || undefined"
+    :aria-label="
+      isVideoComingSoon ? `${title} (coming soon)` : playlistPremiumLocked ? `${title} (premium)` : title
+    "
     @click="goWatch"
     @keydown="onKeydown"
   >
@@ -125,13 +137,17 @@ function onKeydown(e) {
           <path d="M8 5v14l11-7z" />
         </svg>
       </div>
-      <div v-if="isVideoComingSoon" class="yt-video__veil" aria-hidden="true" />
+      <div v-if="isVideoComingSoon || playlistPremiumLocked" class="yt-video__veil" aria-hidden="true" />
       <div v-if="isVideoComingSoon" class="yt-video__soon-badge" role="status">
         <span class="yt-video__soon-line">Coming</span>
         <span class="yt-video__soon-line">soon</span>
       </div>
+      <div v-else-if="playlistPremiumLocked" class="yt-video__premium-badge" role="status">
+        <span class="yt-video__premium-line">Premium</span>
+        <span class="yt-video__premium-line yt-video__premium-line--sub">Locked</span>
+      </div>
       <span v-if="duration" class="yt-video__duration">{{ duration }}</span>
-      <span v-if="!isVideoComingSoon" class="yt-video__play-badge" aria-hidden="true">
+      <span v-if="!blockedPlay" class="yt-video__play-badge" aria-hidden="true">
         <svg class="yt-video__play-ic" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z" />
         </svg>
@@ -140,9 +156,14 @@ function onKeydown(e) {
 
     <div class="yt-video__info">
       <span class="yt-video__title">{{ title }}</span>
-      <span class="yt-video__meta" :class="{ 'yt-video__meta--soon': isVideoComingSoon }">{{
-        isVideoComingSoon ? 'Coming soon' : channelLine
-      }}</span>
+      <span
+        class="yt-video__meta"
+        :class="{
+          'yt-video__meta--soon': isVideoComingSoon,
+          'yt-video__meta--premium': playlistPremiumLocked,
+        }"
+        >{{ metaLine }}</span
+      >
     </div>
   </div>
 </template>
@@ -159,11 +180,12 @@ function onKeydown(e) {
   -webkit-tap-highlight-color: transparent;
 }
 
-.yt-video:not(.yt-video--soon) {
+.yt-video:not(.yt-video--soon):not(.yt-video--premium-lock) {
   cursor: pointer;
 }
 
-.yt-video--soon {
+.yt-video--soon,
+.yt-video--premium-lock {
   cursor: default;
   opacity: 0.92;
 }
@@ -172,7 +194,7 @@ function onKeydown(e) {
   border-bottom: none;
 }
 
-.yt-video:not(.yt-video--soon):active {
+.yt-video:not(.yt-video--soon):not(.yt-video--premium-lock):active {
   background: rgba(255, 255, 255, 0.04);
   margin: 0 -8px;
   padding-left: 8px;
@@ -186,7 +208,8 @@ function onKeydown(e) {
   border-radius: 8px;
 }
 
-.yt-video--soon:focus-visible {
+.yt-video--soon:focus-visible,
+.yt-video--premium-lock:focus-visible {
   outline: none;
 }
 
@@ -201,7 +224,8 @@ function onKeydown(e) {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
-.yt-video--soon .yt-video__thumb {
+.yt-video--soon .yt-video__thumb,
+.yt-video--premium-lock .yt-video__thumb {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -217,7 +241,9 @@ function onKeydown(e) {
 }
 
 .yt-video--soon .yt-video__img,
-.yt-video--soon .yt-video__mega-iframe {
+.yt-video--soon .yt-video__mega-iframe,
+.yt-video--premium-lock .yt-video__img,
+.yt-video--premium-lock .yt-video__mega-iframe {
   filter: brightness(0.9) saturate(0.88);
 }
 
@@ -297,6 +323,47 @@ function onKeydown(e) {
   opacity: 0.82;
 }
 
+.yt-video__premium-badge {
+  position: absolute;
+  z-index: 3;
+  right: 50%;
+  bottom: 50%;
+  transform: translate(50%, 50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 72px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  pointer-events: none;
+  color: rgba(252, 245, 232, 0.96);
+  background: rgba(32, 26, 18, 0.88);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 39, 0.15),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.yt-video__premium-line {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.yt-video__premium-line--sub {
+  margin-top: 2px;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  opacity: 0.88;
+}
+
 .yt-video__duration {
   position: absolute;
   right: 4px;
@@ -351,7 +418,8 @@ function onKeydown(e) {
   overflow: hidden;
 }
 
-.yt-video--soon .yt-video__title {
+.yt-video--soon .yt-video__title,
+.yt-video--premium-lock .yt-video__title {
   color: #c8c4bc;
 }
 
@@ -365,5 +433,11 @@ function onKeydown(e) {
   font-weight: 500;
   letter-spacing: 0.03em;
   color: #b8a990;
+}
+
+.yt-video__meta--premium {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #c9a227;
 }
 </style>

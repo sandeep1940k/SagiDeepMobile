@@ -4,6 +4,7 @@ import YoutubeChannelPromo from '../components/YoutubeChannelPromo.vue'
 import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
 import { playlistsIndex } from '../data/playlists'
 import { youtubeChannel } from '../data/youtubeChannel'
+import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
 
 /** When the Mobile Update sheet is on, subscriber text comes from column C — do not pass static manual line. */
 const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.manualStatsLine
@@ -40,6 +41,7 @@ const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.
             :coming-soon="p.isComingSoon"
             :is-paid="p.isPaid"
             :paid-amount="p.amount"
+            :premium-locked="p.isPaid && !p.isComingSoon && !isPremiumPlaylistUnlocked(p.id)"
           />
         </li>
       </ul>

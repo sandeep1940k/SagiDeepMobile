@@ -1,9 +1,14 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getPlaylistById, playlistListCoverImg } from '../data/playlists'
 import VideoListItem from '../components/VideoListItem.vue'
-import { premiumPriceCompact, premiumThumbChip } from '../utils/premiumUnlock.js'
+import {
+  isPremiumPlaylistUnlocked,
+  premiumPriceCompact,
+  premiumThumbChip,
+  unlockPremiumPlaylist,
+} from '../utils/premiumUnlock.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +16,30 @@ const router = useRouter()
 const playlist = computed(() => getPlaylistById(route.params.id))
 const premiumChipText = computed(() => premiumThumbChip(playlist.value?.amount))
 const premiumPriceShort = computed(() => premiumPriceCompact(playlist.value?.amount))
+
+const premiumUnlocked = ref(false)
+watch(
+  () => [String(route.params.id ?? ''), Boolean(playlist.value?.isPaid), Boolean(playlist.value?.isComingSoon)],
+  ([id, paid, soon]) => {
+    if (!id || !paid || soon) {
+      premiumUnlocked.value = false
+      return
+    }
+    premiumUnlocked.value = isPremiumPlaylistUnlocked(id)
+  },
+  { immediate: true },
+)
+
+const playlistPremiumLocked = computed(
+  () => Boolean(playlist.value?.isPaid) && !playlist.value?.isComingSoon && !premiumUnlocked.value,
+)
+
+function onUnlockPlaylist() {
+  const id = String(route.params.id ?? '')
+  if (!id || !playlist.value?.isPaid) return
+  unlockPremiumPlaylist(id)
+  premiumUnlocked.value = true
+}
 const heroCoverSrc = computed(() => {
   const p = playlist.value
   if (!p || p.isComingSoon) return ''
@@ -73,6 +102,15 @@ function goBack() {
         >
           Unlock to watch
         </p>
+        <button
+          v-if="playlistPremiumLocked"
+          type="button"
+          class="head__unlock-btn"
+          @click="onUnlockPlaylist"
+        >
+          Unlock
+          <template v-if="premiumPriceShort"> · {{ premiumPriceShort }}</template>
+        </button>
         <p class="head__meta">
           <template v-if="playlist.isComingSoon">Episodes arrive soon · Stay tuned</template>
           <template v-else>
@@ -96,6 +134,7 @@ function goBack() {
             :channel-line="v.channelLine"
             :duration="v.duration || ''"
             :is-video-coming-soon="Boolean(v.isVideoComingSoon)"
+            :playlist-premium-locked="playlistPremiumLocked"
           />
         </li>
       </ul>
@@ -267,6 +306,30 @@ function goBack() {
   font-weight: 500;
   letter-spacing: 0.02em;
   color: #9a948a;
+}
+
+.head__unlock-btn {
+  margin-top: 10px;
+  align-self: flex-start;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 162, 39, 0.45);
+  background: linear-gradient(180deg, rgba(201, 162, 39, 0.18), rgba(201, 162, 39, 0.06));
+  color: #f5ecd4;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.head__unlock-btn:active {
+  background: rgba(201, 162, 39, 0.22);
+}
+
+.head__unlock-btn:focus-visible {
+  outline: 2px solid rgba(201, 162, 39, 0.55);
+  outline-offset: 2px;
 }
 
 .head__meta {

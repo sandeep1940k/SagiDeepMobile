@@ -7,6 +7,7 @@ import { openYoutubeWatchPreferApp } from '../utils/openYoutubeWatch'
 import { FOOTER_PROMO_SHEET_ENABLED } from '../config/footerPromoSheetUrl.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { getPlaylistById, getPlaylistVideo } from '../data/playlists'
+import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
 import { youtubeChannel } from '../data/youtubeChannel'
 import {
   useYoutubeChannelRuntimeStats,
@@ -30,6 +31,20 @@ const shareHint = ref(false)
 const playlist = computed(() => getPlaylistById(route.params.playlistId))
 const video = computed(() =>
   getPlaylistVideo(route.params.playlistId, route.params.videoId),
+)
+
+watch(
+  () => [
+    String(route.params.playlistId ?? ''),
+    Boolean(playlist.value?.isPaid),
+    Boolean(playlist.value?.isComingSoon),
+  ],
+  ([pid, paid, soon]) => {
+    if (!pid || soon || !paid) return
+    if (isPremiumPlaylistUnlocked(pid)) return
+    router.replace({ name: 'playlist', params: { id: pid } })
+  },
+  { immediate: true },
 )
 
 watch(
