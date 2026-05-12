@@ -32,6 +32,15 @@ const video = computed(() =>
   getPlaylistVideo(route.params.playlistId, route.params.videoId),
 )
 
+watch(
+  () => [String(route.params.playlistId ?? ''), Boolean(playlist.value?.isComingSoon)],
+  ([pid, soon]) => {
+    if (!pid || !soon) return
+    router.replace({ name: 'playlist', params: { id: pid } })
+  },
+  { immediate: true },
+)
+
 const resolvedYoutubeVideoId = computed(() => episodeYoutubeVideoId(video.value))
 
 const hasVideoFile = computed(() => Boolean(String(video.value?.videoSrc || '').trim()))

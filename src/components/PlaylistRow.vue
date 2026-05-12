@@ -12,13 +12,14 @@ defineProps({
     default: 'blood',
     validator: (v) => ['blood', 'gold', 'ash'].includes(v),
   },
+  comingSoon: { type: Boolean, default: false },
 })
 </script>
 
 <template>
-  <div class="yt-row">
+  <div class="yt-row" :class="{ 'yt-row--soon': comingSoon }">
     <RouterLink :to="{ name: 'playlist', params: { id: playlistId } }" class="yt-row__main">
-      <div class="yt-thumb" :data-variant="variant" aria-hidden="true">
+      <div class="yt-thumb" :class="{ 'yt-thumb--soon': comingSoon }" :data-variant="variant" aria-hidden="true">
         <img
           v-if="coverSrc"
           :src="coverSrc"
@@ -33,7 +34,12 @@ defineProps({
           <span class="yt-thumb__cell yt-thumb__cell--3" />
           <span class="yt-thumb__cell yt-thumb__cell--4" />
         </div>
-        <div class="yt-thumb__badge">
+        <div v-if="comingSoon" class="yt-thumb__veil" />
+        <div v-if="comingSoon" class="yt-thumb__badge yt-thumb__badge--soon" role="status">
+          <span class="yt-thumb__soon-line">Coming</span>
+          <span class="yt-thumb__soon-line">soon</span>
+        </div>
+        <div v-else class="yt-thumb__badge">
           <svg class="yt-thumb__play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M8 5v14l11-7z" />
           </svg>
@@ -43,7 +49,8 @@ defineProps({
 
       <div class="yt-row__text">
         <span class="yt-row__title">{{ title }}</span>
-        <span class="yt-row__meta">Playlist · Public</span>
+        <span v-if="comingSoon" class="yt-row__meta yt-row__meta--soon">Coming soon</span>
+        <span v-else class="yt-row__meta">Playlist · Public</span>
       </div>
     </RouterLink>
   </div>
@@ -63,6 +70,26 @@ defineProps({
 
 .yt-row:active {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.yt-row--soon {
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.yt-row--soon:active {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.yt-row--soon .yt-row__main {
+  align-items: center;
+}
+
+.yt-row--soon .yt-row__text {
+  padding-top: 0;
+  justify-content: center;
+  min-height: 68px;
 }
 
 .yt-row__main {
@@ -165,9 +192,29 @@ defineProps({
   background: linear-gradient(145deg, #323940, #1a1e24);
 }
 
+.yt-thumb--soon {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 2px 16px rgba(0, 0, 0, 0.38);
+  background: linear-gradient(165deg, #252326 0%, #151418 48%, #101012 100%);
+}
+
+.yt-thumb--soon .yt-thumb__cover,
+.yt-thumb--soon .yt-thumb__grid {
+  filter: brightness(0.94) saturate(0.88);
+}
+
+.yt-thumb__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.22) 100%);
+}
+
 .yt-thumb__badge {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   right: 4px;
   bottom: 4px;
   display: inline-flex;
@@ -181,6 +228,47 @@ defineProps({
   color: #fff;
   background: rgba(0, 0, 0, 0.82);
   line-height: 1.2;
+}
+
+.yt-thumb__badge--soon {
+  right: 50%;
+  bottom: 50%;
+  transform: translate(50%, 50%);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 76px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 0;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(248, 246, 242, 0.96);
+  background: rgba(22, 21, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 39, 0.12),
+    0 10px 26px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.yt-thumb__soon-line {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.yt-thumb__soon-line + .yt-thumb__soon-line {
+  margin-top: 3px;
+  font-size: 8.5px;
+  letter-spacing: 0.26em;
+  opacity: 0.82;
 }
 
 .yt-thumb__play {
@@ -215,6 +303,13 @@ defineProps({
   font-size: 13px;
   color: #aaa;
   line-height: 1.3;
+}
+
+.yt-row__meta--soon {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #b8a990;
 }
 
 </style>

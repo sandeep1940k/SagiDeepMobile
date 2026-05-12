@@ -37,6 +37,7 @@ const channelManualStatsLine = FOOTER_PROMO_SHEET_ENABLED ? '' : youtubeChannel.
             :video-count="p.videoCount"
             :variant="p.variant"
             :cover-src="p.listCoverImg"
+            :coming-soon="p.isComingSoon"
           />
         </li>
       </ul>

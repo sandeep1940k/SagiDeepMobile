@@ -8,7 +8,11 @@ const route = useRoute()
 const router = useRouter()
 
 const playlist = computed(() => getPlaylistById(route.params.id))
-const heroCoverSrc = computed(() => (playlist.value ? playlistListCoverImg(playlist.value) : ''))
+const heroCoverSrc = computed(() => {
+  const p = playlist.value
+  if (!p || p.isComingSoon) return ''
+  return playlistListCoverImg(p)
+})
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -24,7 +28,7 @@ function goBack() {
       <button type="button" class="top__back" @click="goBack">‹ Back</button>
     </header>
 
-    <div class="head">
+    <div class="head" :class="{ 'head--soon': playlist.isComingSoon }">
       <div class="head__thumb-wrap">
         <img
           v-if="heroCoverSrc"
@@ -33,15 +37,28 @@ function goBack() {
           :alt="playlist.name"
           loading="lazy"
         />
-        <div v-else class="head__thumb head__thumb--placeholder" />
+        <div
+          v-else
+          class="head__thumb head__thumb--placeholder"
+          :class="{ 'head__thumb--soon-ph': playlist.isComingSoon }"
+        />
+        <div v-if="playlist.isComingSoon" class="head__soon-veil" aria-hidden="true">
+          <span class="head__soon-chip" role="status">
+            <span class="head__soon-chip-line">Coming</span>
+            <span class="head__soon-chip-line">soon</span>
+          </span>
+        </div>
       </div>
       <div class="head__text">
         <h1 class="head__title">{{ playlist.name }}</h1>
-        <p class="head__meta">{{ playlist.videos.length }} videos · Playlist</p>
+        <p class="head__meta">
+          <template v-if="playlist.isComingSoon">Episodes arrive soon · Stay tuned</template>
+          <template v-else>{{ playlist.videos.length }} videos · Playlist</template>
+        </p>
       </div>
     </div>
 
-    <section class="list" aria-label="Videos in playlist">
+    <section v-if="!playlist.isComingSoon" class="list" aria-label="Videos in playlist">
       <h2 class="list__label">Videos</h2>
       <ul class="list__ul">
         <li v-for="v in playlist.videos" :key="v.id">
@@ -57,6 +74,15 @@ function goBack() {
           />
         </li>
       </ul>
+    </section>
+
+    <section v-else class="soon" aria-labelledby="soon-heading">
+      <div class="soon__card">
+        <h2 id="soon-heading" class="soon__title">Not available yet</h2>
+        <p class="soon__copy">
+          This playlist is still being prepared. Episodes will appear here once they are ready.
+        </p>
+      </div>
     </section>
   </div>
 
@@ -210,5 +236,101 @@ function goBack() {
   color: #3ea6ff;
   font-weight: 600;
   text-decoration: none;
+}
+
+.head--soon {
+  align-items: center;
+}
+
+.head--soon .head__thumb-wrap {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 4px 22px rgba(0, 0, 0, 0.42);
+}
+
+.head__thumb--soon-ph {
+  background: linear-gradient(165deg, #252326 0%, #161418 50%, #101012 100%);
+}
+
+.head__soon-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.head__soon-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 84px;
+  padding: 10px 13px;
+  border-radius: 11px;
+  color: rgba(248, 246, 242, 0.96);
+  background: rgba(22, 21, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 39, 0.12),
+    0 10px 28px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.head__soon-chip-line {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.head__soon-chip-line + .head__soon-chip-line {
+  margin-top: 2px;
+  font-size: 8.5px;
+  letter-spacing: 0.26em;
+  opacity: 0.82;
+}
+
+.head--soon .head__meta {
+  color: #b8a990;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.soon {
+  position: relative;
+  z-index: 1;
+  margin-top: 8px;
+}
+
+.soon__card {
+  padding: 20px 18px 22px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(165deg, rgba(34, 32, 36, 0.75), rgba(16, 15, 18, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 32px rgba(0, 0, 0, 0.38);
+}
+
+.soon__title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #ebe6dc;
+}
+
+.soon__copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #9c968a;
 }
 </style>

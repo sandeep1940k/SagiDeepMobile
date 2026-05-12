@@ -76,6 +76,11 @@ function padRow(row) {
   return out
 }
 
+function parseSheetTruthy(val) {
+  const s = String(val ?? '').trim().toUpperCase()
+  return s === 'TRUE' || s === '1' || s === 'YES'
+}
+
 /** @param {string[][]} rows — raw CSV rows including header */
 export function rowsToPlaylistsById(rows) {
   const dataRows = rows.slice(1)
@@ -84,12 +89,14 @@ export function rowsToPlaylistsById(rows) {
 
   let currentPlaylistId = ''
   let currentName = ''
+  let currentIsComingSoon = false
 
   dataRows.forEach((raw) => {
     const row = padRow(raw)
     const [
       id,
       name,
+      isComingSoonCell,
       videoId,
       videoTitle,
       videoSrc,
@@ -98,18 +105,27 @@ export function rowsToPlaylistsById(rows) {
       youtubeVideoLink,
     ] = row
 
-    if (id) currentPlaylistId = String(id).trim()
+    if (id) {
+      currentPlaylistId = String(id).trim()
+      currentIsComingSoon = parseSheetTruthy(isComingSoonCell)
+    }
     if (name) currentName = String(name).trim()
 
-    if (!currentPlaylistId || !String(videoId || '').trim()) return
+    if (!currentPlaylistId) return
 
     if (!playlists[currentPlaylistId]) {
       playlists[currentPlaylistId] = {
         id: currentPlaylistId,
         name: currentName,
+        isComingSoon: currentIsComingSoon,
         videos: [],
       }
+    } else if (id) {
+      playlists[currentPlaylistId].name = currentName
+      playlists[currentPlaylistId].isComingSoon = currentIsComingSoon
     }
+
+    if (!String(videoId || '').trim()) return
 
     playlists[currentPlaylistId].videos.push({
       id: String(videoId).trim(),
@@ -166,13 +182,14 @@ export function playlistListCoverImg(playlist) {
 
 function indexFromById(byId) {
   return Object.values(byId).map((p) => {
-    const { id, name, videos } = p
+    const { id, name, videos, isComingSoon } = p
     return {
       id,
       name,
       videoCount: videos.length,
       variant: 'blood',
       listCoverImg: playlistListCoverImg(p),
+      isComingSoon: Boolean(isComingSoon),
     }
   })
 }
