@@ -7,6 +7,11 @@
  * Episodes: `youtubeVideoId` and trailing `youtubeVideoLink` (after `duration`).
  *
  * **List / header art:** `playlistListCoverImg()` — last episode YouTube `i.ytimg.com` thumb, else raster link.
+ *
+ * **Many rows per playlist:** CSV often repeats `Id` on every episode row, or leaves `Id`/`Name` blank on
+ * continuation rows. Parser carries the active playlist; on `Id` change it resets header fields. When the
+ * same `Id` repeats, playlist flags are only updated from non-empty cells so later blank cells do not clear
+ * `isComingSoon` / `isPaid`. Duplicate `Videos Id` in one playlist replaces the earlier row (last row wins).
  */
 import { isMegaFileOrEmbedUrl } from '../utils/megaVideo.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
@@ -68,7 +73,7 @@ export function parseCSV(csvText) {
 }
 
 /** Pad CSV rows for stable indexing (trailing columns may be empty). */
-const COLS = 15
+const COLS = 20
 
 function padRow(row) {
   const out = row.slice(0, COLS)
@@ -111,12 +116,28 @@ export function rowsToPlaylistsById(rows) {
     ] = row
 
     if (id) {
-      currentPlaylistId = String(id).trim()
-      currentIsComingSoon = parseSheetTruthy(isComingSoonCell)
-      currentIsPaid = parseSheetTruthy(isPaidCell)
-      currentAmount = String(amountCell ?? '').trim()
+      const nextId = String(id).trim()
+      if (nextId !== currentPlaylistId) {
+        currentPlaylistId = nextId
+        currentName = String(name || '').trim()
+        currentIsComingSoon = parseSheetTruthy(isComingSoonCell)
+        currentIsPaid = parseSheetTruthy(isPaidCell)
+        currentAmount = String(amountCell ?? '').trim()
+      } else {
+        if (String(name || '').trim()) currentName = String(name).trim()
+        if (String(isComingSoonCell ?? '').trim() !== '') {
+          currentIsComingSoon = parseSheetTruthy(isComingSoonCell)
+        }
+        if (String(isPaidCell ?? '').trim() !== '') {
+          currentIsPaid = parseSheetTruthy(isPaidCell)
+        }
+        if (String(amountCell ?? '').trim() !== '') {
+          currentAmount = String(amountCell ?? '').trim()
+        }
+      }
+    } else if (String(name || '').trim()) {
+      currentName = String(name).trim()
     }
-    if (name) currentName = String(name).trim()
 
     if (!currentPlaylistId) return
 
@@ -129,7 +150,7 @@ export function rowsToPlaylistsById(rows) {
         amount: currentAmount,
         videos: [],
       }
-    } else if (id) {
+    } else {
       playlists[currentPlaylistId].name = currentName
       playlists[currentPlaylistId].isComingSoon = currentIsComingSoon
       playlists[currentPlaylistId].isPaid = currentIsPaid
@@ -138,8 +159,12 @@ export function rowsToPlaylistsById(rows) {
 
     if (!String(videoId || '').trim()) return
 
-    playlists[currentPlaylistId].videos.push({
-      id: String(videoId).trim(),
+    const vid = String(videoId).trim()
+    const list = playlists[currentPlaylistId].videos
+    const dupIdx = list.findIndex((v) => v.id === vid)
+    if (dupIdx !== -1) list.splice(dupIdx, 1)
+    list.push({
+      id: vid,
       title: String(videoTitle || '').trim(),
       videoSrc: String(videoSrc || '').trim(),
       youtubeVideoId: String(youtubeVideoId || '').trim(),
@@ -195,19 +220,23 @@ export function playlistListCoverImg(playlist) {
 }
 
 function indexFromById(byId) {
-  return Object.values(byId).map((p) => {
-    const { id, name, videos, isComingSoon, isPaid, amount } = p
-    return {
-      id,
-      name,
-      videoCount: videos.length,
-      variant: 'blood',
-      listCoverImg: playlistListCoverImg(p),
-      isComingSoon: Boolean(isComingSoon),
-      isPaid: Boolean(isPaid),
-      amount: String(amount ?? '').trim(),
-    }
-  })
+  return Object.values(byId)
+    .sort((a, b) =>
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' }),
+    )
+    .map((p) => {
+      const { id, name, videos, isComingSoon, isPaid, amount } = p
+      return {
+        id,
+        name,
+        videoCount: videos.length,
+        variant: 'blood',
+        listCoverImg: playlistListCoverImg(p),
+        isComingSoon: Boolean(isComingSoon),
+        isPaid: Boolean(isPaid),
+        amount: String(amount ?? '').trim(),
+      }
+    })
 }
 
 /** @type {Record<string, any>} */
