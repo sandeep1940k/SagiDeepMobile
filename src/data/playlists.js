@@ -8,6 +8,9 @@
  *
  * **List / header art:** `playlistListCoverImg()` — last episode YouTube `i.ytimg.com` thumb, else raster link.
  *
+ * **Sheet layout:** Playlist fields are read from **column L onward** (columns A–K are ignored in each CSV row).
+ * Same field order as before: Id, Name, … through `youtubeVideoLink` (see `padRow` / `rowsToPlaylistsById`).
+ *
  * **Many rows per playlist:** CSV often repeats `Id` on every episode row, or leaves `Id`/`Name` blank on
  * continuation rows. Parser carries the active playlist; on `Id` change it resets header fields. When the
  * same `Id` repeats, playlist flags are only updated from non-empty cells so later blank cells do not clear
@@ -16,8 +19,8 @@
 import { isMegaFileOrEmbedUrl } from '../utils/megaVideo.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
-const DEFAULT_SHEET_ID = '147Ds6y1uAU-Dgk-IUth7TaBdpj_bWZqMLFf_MFJNpaQ'
-const DEFAULT_SHEET_NAME = 'PlayList'
+const DEFAULT_SHEET_ID = '1qZLjU53fHVZg5Uj4ect0P5Gb29s6oJ-Mp335gUlzDPE'
+const DEFAULT_SHEET_NAME = 'Sheet1'
 
 const SHEET_ID =
   String(import.meta.env.VITE_PLAYLIST_SHEET_ID || '').trim() || DEFAULT_SHEET_ID
@@ -72,11 +75,15 @@ export function parseCSV(csvText) {
   return rows
 }
 
-/** Pad CSV rows for stable indexing (trailing columns may be empty). */
+/** First playlist column in the sheet is L (1-based). Skip 11 cells (A–K) per row. */
+const PLAYLIST_CSV_DATA_START = 11
+
+/** Pad CSV rows for stable indexing (trailing columns may be empty). Data is taken from column L. */
 const COLS = 20
 
 function padRow(row) {
-  const out = row.slice(0, COLS)
+  const fromL = row.slice(PLAYLIST_CSV_DATA_START)
+  const out = fromL.slice(0, COLS)
   while (out.length < COLS) out.push('')
   return out
 }
@@ -86,7 +93,7 @@ function parseSheetTruthy(val) {
   return s === 'TRUE' || s === '1' || s === 'YES'
 }
 
-/** @param {string[][]} rows — raw CSV rows including header */
+/** @param {string[][]} rows — raw CSV rows including header (row 0); data from column L in each row */
 export function rowsToPlaylistsById(rows) {
   const dataRows = rows.slice(1)
   /** @type {Record<string, any>} */
