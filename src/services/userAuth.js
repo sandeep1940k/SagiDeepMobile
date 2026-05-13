@@ -9,6 +9,7 @@ import { USER_AUTH_SECRET, USER_AUTH_SHEET_URL } from '../config/userAuthSheetUr
 const SESSION_KEY = 'sagideep_session_v1'
 
 const DEV_APPS_SCRIPT_PROXY_PATH = '/__sagideep_sheet_auth'
+const DEV_IP_TRACK_PROXY_PATH = '/__sagideep_sheet_ip_track'
 
 const MSG_EMAIL_ALREADY_EXIST = 'Email already exist.'
 
@@ -54,6 +55,39 @@ function rawConfigSheetUrl() {
   return remote
 }
 
+function sameWebAppPath(a, b) {
+  const x = String(a ?? '').trim()
+  const y = String(b ?? '').trim()
+  if (!x || !y) return false
+  try {
+    const px = new URL(x).pathname.replace(/\/+$/i, '')
+    const py = new URL(y).pathname.replace(/\/+$/i, '')
+    return px === py
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @param {boolean} useSheetOnly
+ * @param {string} [sheetUrlOverride] — optional full `/exec` URL (e.g. IP tracking). Dev: ip-track proxy if deployment differs from `SHEET_URL`.
+ */
+function rawUrlForWebAppPost(useSheetOnly, sheetUrlOverride) {
+  const o = String(sheetUrlOverride ?? '').trim()
+  if (o) {
+    const remote = o
+    if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+      const baseSheet = resolvedConfigSheetWebAppUrl()
+      if (baseSheet && sameWebAppPath(remote, baseSheet)) {
+        return `${window.location.origin}${DEV_APPS_SCRIPT_PROXY_PATH}`
+      }
+      return `${window.location.origin}${DEV_IP_TRACK_PROXY_PATH}`
+    }
+    return remote
+  }
+  return useSheetOnly ? rawConfigSheetUrl() : rawAuthUrl()
+}
+
 function rawAuthSecret() {
   const fromEnv = String(import.meta.env.VITE_USER_AUTH_SECRET ?? '').trim()
   if (fromEnv) return fromEnv
@@ -88,7 +122,9 @@ export function validateAuthUrl(raw) {
   if (
     import.meta.env.DEV &&
     (parsed.pathname === DEV_APPS_SCRIPT_PROXY_PATH ||
-      parsed.pathname.startsWith(`${DEV_APPS_SCRIPT_PROXY_PATH}/`)) &&
+      parsed.pathname === DEV_IP_TRACK_PROXY_PATH ||
+      parsed.pathname.startsWith(`${DEV_APPS_SCRIPT_PROXY_PATH}/`) ||
+      parsed.pathname.startsWith(`${DEV_IP_TRACK_PROXY_PATH}/`)) &&
     /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)
   ) {
     return { ok: true, url: s.replace(/\/+$/, '') }
@@ -105,12 +141,13 @@ export function validateAuthUrl(raw) {
 /**
  * POST JSON to the Web App. Auth uses `VITE_USER_AUTH_URL` → `SHEET_URL` → fallback.
  * @param {Record<string, unknown>} body
- * @param {{ useConfigSheetUrlOnly?: boolean }} [opts] — if true, POST only to **`SHEET_URL`** (same as `src/config/config.js`) + `USER_AUTH_SHEET_URL` fallback, for footer promo etc.
+ * @param {{ useConfigSheetUrlOnly?: boolean, sheetUrlOverride?: string }} [opts] — if `useConfigSheetUrlOnly`, POST to config sheet URL; optional **`sheetUrlOverride`** is another full `/exec` URL (e.g. IP tracking).
  * @returns {Promise<unknown>}
  */
 export async function postWebAppJson(body, opts) {
   const useSheetOnly = opts?.useConfigSheetUrlOnly === true
-  const validated = validateAuthUrl(useSheetOnly ? rawConfigSheetUrl() : rawAuthUrl())
+  const sheetUrlOverride = String(opts?.sheetUrlOverride ?? '').trim()
+  const validated = validateAuthUrl(rawUrlForWebAppPost(useSheetOnly, sheetUrlOverride))
   if (!validated.ok) {
     throw new Error(validated.reason)
   }
@@ -120,6 +157,7 @@ export async function postWebAppJson(body, opts) {
   const r = await fetch(validated.url, {
     method: 'POST',
     cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   const text = await r.text()

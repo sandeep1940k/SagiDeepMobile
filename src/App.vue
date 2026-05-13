@@ -4,6 +4,9 @@ import { RouterView, useRoute } from 'vue-router'
 import ChannelSubscribeToast from './components/ChannelSubscribeToast.vue'
 import GlobalAppHeader from './components/GlobalAppHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
+import { useSheetClickIpTrack } from './composables/useSheetClickIpTrack.js'
+
+useSheetClickIpTrack()
 
 const route = useRoute()
 /** Account bar + channel promo; hidden on full-screen watch and on auth. */

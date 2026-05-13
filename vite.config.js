@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { SHEET_URL } from './src/config/config.js'
+import { SHEET_IP_TRACK_URL, SHEET_URL } from './src/config/config.js'
 
 /** Path on script.google.com for the Web App (used by dev proxy below). */
-function appsScriptWebAppPathname() {
-  const sheet = String(SHEET_URL ?? '').trim()
+function webAppPathnameFromExecUrl(fullUrl) {
+  const sheet = String(fullUrl ?? '').trim()
   try {
     if (!sheet) return '/macros/s/invalid/exec'
     const p = new URL(sheet).pathname.replace(/\/+$/, '')
@@ -26,7 +26,13 @@ export default defineConfig({
         target: 'https://script.google.com',
         changeOrigin: true,
         secure: true,
-        rewrite: () => appsScriptWebAppPathname(),
+        rewrite: () => webAppPathnameFromExecUrl(SHEET_URL),
+      },
+      '/__sagideep_sheet_ip_track': {
+        target: 'https://script.google.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => webAppPathnameFromExecUrl(SHEET_IP_TRACK_URL || SHEET_URL),
       },
     },
   },
