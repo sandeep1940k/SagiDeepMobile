@@ -1,3 +1,21 @@
+
+export const SAGIDEEP_USERS = 'https://script.google.com/macros/s/AKfycbz48GWhmV7_nSVeBTxZHVe1iB5rxx0eq4W_MoHXoWqav3TElmd06sc3xzKuzsUzj_4v/exec';
+export const SAGIDEEP_PLAYLISTS = 'https://script.google.com/macros/s/AKfycbw9qopI0bxxsD-CcOgnMLAz6DShhFSYi17lTFwq3fnC9R3JYLpJjktWvhGvsTVPluuf1Q/exec';
+export const SAGIDEEP_MOBILE_UPDATES = 'https://script.google.com/macros/s/AKfycbz6_PhmR01JaHr08yUgNSjAZQ3D_9Q3ZVwuGjNnLsHVRsR8JZXmXoW3WJxGE--bEPdG/exec';
+export const SAGIDEEP_TRACKING = 'https://script.google.com/macros/s/AKfycbxM6R2_XptGiH5yjbz1_tzqgfCM_puVUdKMr7V2popvAt_rsCPXOGS5Uc14wzlsXgN7/exec';
+
+
+
+
+
+
+
+
+
+
+
+
+
 /** Google Apps Script Web App URL (login, signup, and footer promo all use this). */
 export const SHEET_URL =
   'https://script.google.com/macros/s/AKfycbxcwho1ID8uhkWrVrYVm4X0YKDrdL5bLgkiNv0va1VON4xGG2MMJ8WJGh_0TH-3Jo6A/exec'

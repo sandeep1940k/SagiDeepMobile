@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import ChannelSubscribeToast from './components/ChannelSubscribeToast.vue'
+import ChannelSubscribeBar from './components/ChannelSubscribeBar.vue'
 import GlobalAppHeader from './components/GlobalAppHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
 import { useSheetClickIpTrack } from './composables/useSheetClickIpTrack.js'
@@ -17,10 +17,10 @@ const showGlobalFooter = computed(() => showGlobalChrome.value)
 <template>
   <div class="app-layout">
     <GlobalAppHeader v-if="showGlobalChrome" />
-    <ChannelSubscribeToast v-if="showGlobalChrome" />
     <main class="app-layout__main">
       <RouterView />
     </main>
+    <ChannelSubscribeBar v-if="showGlobalChrome" />
     <GlobalFooter v-if="showGlobalFooter" />
   </div>
 </template>

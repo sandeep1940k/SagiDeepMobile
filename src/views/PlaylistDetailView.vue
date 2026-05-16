@@ -1,70 +1,19 @@
-<script setup>
-import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { getPlaylistById, playlistListCoverImg } from '../data/playlists'
-import VideoListItem from '../components/VideoListItem.vue'
-import {
-  isPremiumPlaylistUnlocked,
-  premiumPriceCompact,
-  premiumThumbChip,
-  unlockPremiumPlaylist,
-} from '../utils/premiumUnlock.js'
-
-const route = useRoute()
-const router = useRouter()
-
-const playlist = computed(() => getPlaylistById(route.params.id))
-const premiumChipText = computed(() => premiumThumbChip(playlist.value?.amount))
-const premiumPriceShort = computed(() => premiumPriceCompact(playlist.value?.amount))
-
-const premiumUnlocked = ref(false)
-watch(
-  () => [String(route.params.id ?? ''), Boolean(playlist.value?.isPaid), Boolean(playlist.value?.isComingSoon)],
-  ([id, paid, soon]) => {
-    if (!id || !paid || soon) {
-      premiumUnlocked.value = false
-      return
-    }
-    premiumUnlocked.value = isPremiumPlaylistUnlocked(id)
-  },
-  { immediate: true },
-)
-
-const playlistPremiumLocked = computed(
-  () => Boolean(playlist.value?.isPaid) && !playlist.value?.isComingSoon && !premiumUnlocked.value,
-)
-
-function onUnlockPlaylist() {
-  const id = String(route.params.id ?? '')
-  if (!id || !playlist.value?.isPaid) return
-  unlockPremiumPlaylist(id)
-  premiumUnlocked.value = true
-}
-const heroCoverSrc = computed(() => {
-  const p = playlist.value
-  if (!p || p.isComingSoon) return ''
-  return playlistListCoverImg(p)
-})
-
-function goBack() {
-  if (window.history.length > 1) router.back()
-  else router.push({ name: 'home' })
-}
-</script>
-
 <template>
-  <div v-if="playlist" class="shell">
+  <div v-if="showShell" class="shell">
     <div class="shell__glow" aria-hidden="true" />
 
     <header class="top">
       <button type="button" class="top__back" @click="goBack">‹ Back</button>
     </header>
 
+    <PageSkeleton v-if="playlistPageLoading" variant="playlist" :rows="6" />
+
+    <template v-else>
     <div
       class="head"
       :class="{
-        'head--soon': playlist.isComingSoon,
-        'head--paid': playlist.isPaid && !playlist.isComingSoon,
+        'head--soon': sheetPlaylist?.isComingSoon,
+        'head--paid': sheetPlaylist?.isPaid && !sheetPlaylist?.isComingSoon,
       }"
     >
       <div class="head__thumb-wrap">
@@ -72,22 +21,22 @@ function goBack() {
           v-if="heroCoverSrc"
           :src="heroCoverSrc"
           class="head__thumb"
-          :alt="playlist.name"
+          :alt="displayTitle"
           loading="lazy"
         />
         <div
           v-else
           class="head__thumb head__thumb--placeholder"
-          :class="{ 'head__thumb--soon-ph': playlist.isComingSoon }"
+          :class="{ 'head__thumb--soon-ph': sheetPlaylist?.isComingSoon }"
         />
         <div
-          v-if="playlist.isPaid && !playlist.isComingSoon"
+          v-if="sheetPlaylist?.isPaid && !sheetPlaylist?.isComingSoon"
           class="head__premium-badge"
           aria-hidden="true"
         >
           <span class="head__premium-chip">{{ premiumChipText }}</span>
         </div>
-        <div v-if="playlist.isComingSoon" class="head__soon-veil" aria-hidden="true">
+        <div v-if="sheetPlaylist?.isComingSoon" class="head__soon-veil" aria-hidden="true">
           <span class="head__soon-chip" role="status">
             <span class="head__soon-chip-line">Coming</span>
             <span class="head__soon-chip-line">soon</span>
@@ -95,9 +44,9 @@ function goBack() {
         </div>
       </div>
       <div class="head__text">
-        <h1 class="head__title">{{ playlist.name }}</h1>
+        <h1 class="head__title">{{ displayTitle }}</h1>
         <p
-          v-if="playlist.isPaid && !playlist.isComingSoon"
+          v-if="sheetPlaylist?.isPaid && !sheetPlaylist?.isComingSoon"
           class="head__premium-note"
         >
           Unlock to watch
@@ -112,20 +61,24 @@ function goBack() {
           <template v-if="premiumPriceShort"> · {{ premiumPriceShort }}</template>
         </button>
         <p class="head__meta">
-          <template v-if="playlist.isComingSoon">Episodes arrive soon · Stay tuned</template>
+          <template v-if="sheetPlaylist?.isComingSoon">Episodes arrive soon · Stay tuned</template>
           <template v-else>
-            {{ playlist.videos.length === 1 ? '1 video' : `${playlist.videos.length} videos` }} · Playlist
+            {{ apiVideos.length === 1 ? '1 video' : `${apiVideos.length} videos` }} · Playlist
           </template>
         </p>
       </div>
     </div>
 
-    <section v-if="!playlist.isComingSoon" class="list" aria-label="Videos in playlist">
+    <section
+      v-if="!sheetPlaylist?.isComingSoon && apiVideos.length"
+      class="list"
+      aria-label="Videos in playlist"
+    >
       <h2 class="list__label">Videos</h2>
       <ul class="list__ul">
-        <li v-for="v in playlist.videos" :key="v.id">
+        <li v-for="v in apiVideos" :key="v.id">
           <VideoListItem
-            :playlist-id="String(route.params.id)"
+            :playlist-id="routeId"
             :video-id="v.id"
             :title="v.title"
             :thumbnail-url="v.thumbnailUrl || ''"
@@ -140,12 +93,12 @@ function goBack() {
       </ul>
     </section>
 
-    <section v-else class="soon" aria-labelledby="soon-heading">
+    <section v-else-if="sheetPlaylist?.isComingSoon" class="soon" aria-labelledby="soon-heading">
       <div class="soon__card">
         <h2 id="soon-heading" class="soon__title">Not available yet</h2>
         <p class="soon__copy">
           This playlist is still being prepared. Episodes will appear here once they are ready.
-          <template v-if="playlist.isPaid">
+          <template v-if="sheetPlaylist?.isPaid">
             <br />
             <span class="soon__paid-hint">
               <template v-if="premiumPriceShort">{{ premiumPriceShort }} when available.</template>
@@ -155,13 +108,238 @@ function goBack() {
         </p>
       </div>
     </section>
+    </template>
   </div>
 
-  <div v-else class="shell shell--empty">
+  <div v-else-if="showEmpty" class="shell shell--empty">
     <p class="empty__text">Playlist not found.</p>
     <RouterLink :to="{ name: 'home' }" class="empty__link">Go home</RouterLink>
   </div>
 </template>
+
+<script setup>
+import { computed, onBeforeMount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { getPlaylistById, playlistListCoverImg, playlistsSheetState } from '../data/playlists'
+import PageSkeleton from '../components/PageSkeleton.vue'
+import VideoListItem from '../components/VideoListItem.vue'
+import {
+  isPremiumPlaylistUnlocked,
+  premiumPriceCompact,
+  premiumThumbChip,
+  unlockPremiumPlaylist,
+} from '../utils/premiumUnlock.js'
+import { SAGIDEEP_PLAYLISTS_URL, SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
+import { formatVideoDurationDisplay } from '../utils/durationDisplay.js'
+import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
+
+const route = useRoute()
+const router = useRouter()
+
+/** Sheet catalog only (name, paid, coming soon) — not used for the video list. */
+const sheetPlaylist = computed(() => getPlaylistById(String(route.params.id ?? '')))
+
+/** Full JSON from Apps Script (e.g. `{ success, videos }`). */
+const remotePlaylistDetail = ref(null)
+const loading = ref(true)
+
+const playlistPageLoading = computed(() => playlistsSheetState.loading || loading.value)
+
+const routeId = computed(() => String(route.params.id ?? '').trim())
+
+const apiVideos = computed(() => {
+  const d = remotePlaylistDetail.value
+  if (!d || typeof d !== 'object') return []
+  const arr = Array.isArray(d.videos) ? d.videos : []
+  return normalizeVideosFromAppsScript(arr)
+})
+
+const displayTitle = computed(() => {
+  const n = String(sheetPlaylist.value?.name ?? '').trim()
+  if (n) return n
+  return routeId.value ? `Playlist ${routeId.value}` : 'Playlist'
+})
+
+const showShell = computed(
+  () =>
+    Boolean(routeId.value) &&
+    (Boolean(sheetPlaylist.value) ||
+      apiVideos.value.length > 0 ||
+      loading.value ||
+      playlistsSheetState.loading),
+)
+
+const showEmpty = computed(
+  () =>
+    Boolean(routeId.value) &&
+    !loading.value &&
+    !playlistsSheetState.loading &&
+    !sheetPlaylist.value &&
+    apiVideos.value.length === 0,
+)
+
+function sheetTruthy(v) {
+  return v === true || String(v ?? '').trim().toUpperCase() === 'TRUE'
+}
+
+function normalizeVideoFromAppsScript(v) {
+  if (!v || typeof v !== 'object') return null
+  const id = String(v.id ?? v.videoId ?? '').trim()
+  if (!id) return null
+  const ytId = String(v.youtubeVideoId ?? v.youtubeId ?? '').trim()
+  const link = String(v.youtubeVideoLink ?? '').trim()
+  const youtubeVideoLink =
+    link || (ytId ? `https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}` : '')
+  const thumbRaw = v.thumbnailUrl ?? v.thumbnail
+  const thumbnailUrl =
+    thumbRaw == null || thumbRaw === '' ? '' : String(thumbRaw).trim()
+  return {
+    id,
+    title: String(v.title ?? '').trim(),
+    videoSrc: String(v.videoSrc ?? '').trim(),
+    youtubeVideoId: ytId,
+    youtubeVideoLink,
+    thumbnailUrl,
+    duration: formatVideoDurationDisplay(v.duration),
+    channelLine: String(v.channelLine ?? 'SagiDeep').trim() || 'SagiDeep',
+    isVideoComingSoon: sheetTruthy(v.isVideoComingSoon),
+  }
+}
+
+function normalizeVideosFromAppsScript(videos) {
+  if (!Array.isArray(videos)) return []
+  return videos.map(normalizeVideoFromAppsScript).filter(Boolean)
+}
+
+function lastHeroThumbFromVideos(videos) {
+  if (!Array.isArray(videos)) return ''
+  for (let i = videos.length - 1; i >= 0; i--) {
+    const u = String(videos[i]?.thumbnailUrl || '').trim()
+    if (u) return u
+  }
+  return ''
+}
+
+const heroCoverSrc = computed(() => {
+  if (sheetPlaylist.value?.isComingSoon) return ''
+  const fromApi = lastHeroThumbFromVideos(apiVideos.value)
+  if (fromApi) return fromApi
+  const p = sheetPlaylist.value
+  if (p) return playlistListCoverImg(p)
+  return ''
+})
+
+onBeforeMount(async () => {
+  const url = SAGIDEEP_TRACKING_URL()
+  if (!url) {
+    return
+  }
+  try {
+    const ip = await fetchPublicIp();
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      body: JSON.stringify({
+        ipAddress: ip,
+        activity: 'viewed_playlist',
+      }),
+    })
+    // const data = await response.json()
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+})
+
+async function loadPlaylistVideosFromScript() {
+  const id = routeId.value
+  if (!id) {
+    loading.value = false
+    return
+  }
+  const url = SAGIDEEP_PLAYLISTS_URL()
+  if (!url) {
+    loading.value = false
+    return
+  }
+  loading.value = true
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'doGetVideosByPlaylistId',
+        playlistId: id,
+      }),
+    })
+    const text = await response.text()
+    const trimmed = text.trimStart()
+    if (!response.ok || trimmed.startsWith('<')) {
+      return
+    }
+    remotePlaylistDetail.value = JSON.parse(trimmed)
+  } catch (error) {
+    console.error('Error fetching videos:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadPlaylistVideosFromScript()
+})
+
+watch(
+  () => routeId.value,
+  (id) => {
+    remotePlaylistDetail.value = null
+    if (id) void loadPlaylistVideosFromScript()
+  },
+)
+
+const premiumChipText = computed(() => premiumThumbChip(sheetPlaylist.value?.amount))
+const premiumPriceShort = computed(() => premiumPriceCompact(sheetPlaylist.value?.amount))
+
+const premiumUnlocked = ref(false)
+watch(
+  () => [
+    routeId.value,
+    Boolean(sheetPlaylist.value?.isPaid),
+    Boolean(sheetPlaylist.value?.isComingSoon),
+  ],
+  ([id, paid, soon]) => {
+    if (!id || !paid || soon) {
+      premiumUnlocked.value = false
+      return
+    }
+    premiumUnlocked.value = isPremiumPlaylistUnlocked(id)
+  },
+  { immediate: true },
+)
+
+const playlistPremiumLocked = computed(
+  () =>
+    Boolean(sheetPlaylist.value?.isPaid) &&
+    !sheetPlaylist.value?.isComingSoon &&
+    !premiumUnlocked.value,
+)
+
+function onUnlockPlaylist() {
+  const id = routeId.value
+  if (!id || !sheetPlaylist.value?.isPaid) return
+  unlockPremiumPlaylist(id)
+  premiumUnlocked.value = true
+}
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.push({ name: 'home' })
+}
+</script>
+
+
 
 <style scoped>
 .shell {

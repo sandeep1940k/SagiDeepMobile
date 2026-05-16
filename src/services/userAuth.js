@@ -3,15 +3,86 @@
  * Expects `{ success: true|false, message?: string }` and optional `{ user }`.
  */
 
-import { SHEET_URL } from '../config/config.js'
+import { SAGIDEEP_USERS, SAGIDEEP_PLAYLISTS, SAGIDEEP_MOBILE_UPDATES, SAGIDEEP_TRACKING, SHEET_URL } from '../config/config.js'
 import { USER_AUTH_SECRET, USER_AUTH_SHEET_URL } from '../config/userAuthSheetUrl.js'
 
 const SESSION_KEY = 'sagideep_session_v1'
 
 const DEV_APPS_SCRIPT_PROXY_PATH = '/__sagideep_sheet_auth'
 const DEV_IP_TRACK_PROXY_PATH = '/__sagideep_sheet_ip_track'
-
+const DEV_USERS_PROXY_PATH = '/__sagideep_users'
+const DEV_PLAYLISTS_PROXY_PATH = '/__sagideep_playlists'
+const DEV_MOBILE_UPDATES_PROXY_PATH = '/__sagideep_mobile_updates'
+const DEV_TRACKING_PROXY_PATH = '/__sagideep_tracking'
 const MSG_EMAIL_ALREADY_EXIST = 'Email already exist.'
+
+
+function shouldUseAppsScriptDevProxy(remote) {
+  if (!import.meta.env.DEV) return false
+  if (String(import.meta.env.VITE_APPS_SCRIPT_DEV_PROXY ?? '').trim() === '0') return false
+  if (!remote) return false
+  try {
+    return /^script\.google\.com$/i.test(new URL(remote).hostname)
+  } catch {
+    return false
+  }
+}
+
+export function SAGIDEEP_USERS_URL() {
+  const remote = String(SAGIDEEP_USERS ?? '').trim()
+  if (!remote) return ''
+  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${DEV_USERS_PROXY_PATH}`
+  }
+  return remote
+}
+
+export function SAGIDEEP_TRACKING_URL() {
+  const remote = String(SAGIDEEP_TRACKING ?? '').trim()
+  if (!remote) return ''
+  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${DEV_TRACKING_PROXY_PATH}`
+  }
+  return remote
+}
+
+
+export function SAGIDEEP_PLAYLISTS_URL() {
+  const remote = String(SAGIDEEP_PLAYLISTS ?? '').trim()
+  if (!remote) return ''
+  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${DEV_PLAYLISTS_PROXY_PATH}`
+  }
+  return remote
+}
+
+export function SAGIDEEP_MOBILE_UPDATES_URL() {
+  const remote = String(SAGIDEEP_MOBILE_UPDATES ?? '').trim()
+  if (!remote) return ''
+  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${DEV_MOBILE_UPDATES_PROXY_PATH}`
+  }
+  return remote
+}
+
+/** GET playlist web app with `action=doGetVideosByPlaylistId` + `playlistId` (`e.parameter` in Apps Script). */
+export function SAGIDEEP_PLAYLIST_VIDEOS(playlistId) {
+  const base = SAGIDEEP_PLAYLISTS_URL()
+  const id = String(playlistId ?? '').trim()
+  if (!base || !id) return ''
+  const action = 'doGetVideosByPlaylistId'
+  try {
+    const u = new URL(base)
+    u.searchParams.set('action', action)
+    u.searchParams.set('playlistId', id)
+    return u.toString()
+  } catch {
+    const b = String(base).replace(/\/?$/, '')
+    return `${b}?action=${encodeURIComponent(action)}&playlistId=${encodeURIComponent(id)}`
+  }
+}
+
+
 
 function resolvedRemoteAuthUrl() {
   const fromEnv = String(import.meta.env.VITE_USER_AUTH_URL ?? '').trim()
@@ -28,16 +99,7 @@ function resolvedConfigSheetWebAppUrl() {
   return String(USER_AUTH_SHEET_URL ?? '').trim()
 }
 
-function shouldUseAppsScriptDevProxy(remote) {
-  if (!import.meta.env.DEV) return false
-  if (String(import.meta.env.VITE_APPS_SCRIPT_DEV_PROXY ?? '').trim() === '0') return false
-  if (!remote) return false
-  try {
-    return /^script\.google\.com$/i.test(new URL(remote).hostname)
-  } catch {
-    return false
-  }
-}
+
 
 function rawAuthUrl() {
   const remote = resolvedRemoteAuthUrl()
@@ -54,6 +116,18 @@ function rawConfigSheetUrl() {
   }
   return remote
 }
+
+/** Sign-up web app (`SAGIDEEP_USERS`): same-origin proxy in dev to avoid browser CORS to `script.google.com`. */
+function rawSagideepUsersUrl() {
+  const remote = String(SAGIDEEP_USERS ?? '').trim()
+  if (!remote) return ''
+  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${DEV_USERS_PROXY_PATH}`
+  }
+  return remote
+}
+
+
 
 function sameWebAppPath(a, b) {
   const x = String(a ?? '').trim()
@@ -123,8 +197,10 @@ export function validateAuthUrl(raw) {
     import.meta.env.DEV &&
     (parsed.pathname === DEV_APPS_SCRIPT_PROXY_PATH ||
       parsed.pathname === DEV_IP_TRACK_PROXY_PATH ||
+      parsed.pathname === DEV_USERS_PROXY_PATH ||
       parsed.pathname.startsWith(`${DEV_APPS_SCRIPT_PROXY_PATH}/`) ||
-      parsed.pathname.startsWith(`${DEV_IP_TRACK_PROXY_PATH}/`)) &&
+      parsed.pathname.startsWith(`${DEV_IP_TRACK_PROXY_PATH}/`) ||
+      parsed.pathname.startsWith(`${DEV_USERS_PROXY_PATH}/`)) &&
     /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)
   ) {
     return { ok: true, url: s.replace(/\/+$/, '') }
@@ -368,7 +444,7 @@ async function postAuth(action, fields) {
 }
 
 /** Best-effort public IP for sheet column "User IP Address" (signup only). */
-async function fetchPublicIp() {
+export async function fetchPublicIp() {
   try {
     const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
     if (!r.ok) return ''

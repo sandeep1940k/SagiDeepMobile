@@ -1,8 +1,240 @@
+<template>
+  <footer v-if="showFooterChrome" class="gf" role="contentinfo">
+    <PageSkeleton v-if="loading" variant="footer" />
+    <a
+      v-else-if="normalizedFooterPromo"
+      class="gf__promo"
+      :href="normalizedFooterPromo.videoLink"
+      target="_blank"
+      rel="noopener noreferrer"
+      :aria-label="promoAriaLabelFromApi"
+    >
+      <div class="gf__promo-top">
+        <div class="gf__promo-thumb-wrap">
+          <span v-if="normalizedFooterPromo.newBadgeText" class="gf__promo-new">{{
+            normalizedFooterPromo.newBadgeText
+          }}</span>
+          <img
+            class="gf__promo-thumb"
+            :src="normalizedFooterPromo.thumbnail"
+            :alt="normalizedFooterPromo.title"
+            width="160"
+            height="90"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="gf__promo-meta">
+          <span class="gf__promo-video-title">{{ normalizedFooterPromo.title }}</span>
+          <span v-if="normalizedFooterPromo.description" class="gf__promo-desc">{{
+            normalizedFooterPromo.description
+          }}</span>
+        </div>
+        <span class="gf__promo-update" lang="en">Update</span>
+      </div>
+    </a>
+  </footer>
+</template>
+
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import PageSkeleton from './PageSkeleton.vue'
 import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { youtubeChannel } from '../data/youtubeChannel'
+import { SAGIDEEP_MOBILE_UPDATES_URL } from '../services/userAuth.js'
+import { extractYoutubeVideoId } from '../utils/youtubeVideoId.js'
+import {
+  mergeMobileUpdatesPayload,
+  pickFirstStringFromObject,
+} from '../utils/mobileUpdatesPayload.js'
+import {
+  clearMobileUpdatesChannelFromPayload,
+  syncMobileUpdatesChannelFromPayload,
+} from '../data/mobileUpdatesChannelSync.js'
+
+const mergePayload = mergeMobileUpdatesPayload
+const pickFirstString = pickFirstStringFromObject
+
+const TITLE_KEYS = [
+  'title',
+  'videoTitle',
+  'mobileUpdateTitle',
+  'name',
+  'heading',
+  'subject',
+  'VideoTitle',
+  'Title',
+]
+
+const DESC_KEYS = [
+  'description',
+  'videoDescription',
+  'mobileUpdateDescription',
+  'desc',
+  'summary',
+  'message',
+  'body',
+  'text',
+  'details',
+  'caption',
+  'info',
+  'about',
+  'note',
+  'content',
+  'Detail',
+  'Description',
+]
+
+async function fetchOEmbedTitle(watchUrl) {
+  try {
+    const u = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`
+    const res = await fetch(u)
+    if (!res.ok) return ''
+    const j = await res.json()
+    return String(j.title || '').trim()
+  } catch {
+    return ''
+  }
+}
+
+function parseIsUpdateCell(cell) {
+  if (cell === true || cell === 1) return true
+  const t = String(cell ?? '')
+    .trim()
+    .toUpperCase()
+  return t === 'TRUE' || t === '1' || t === 'YES' || t === 'Y'
+}
+
+
+const loading = ref(true)
+const mobileUpdateData = ref(null)
+/** Filled when JSON has no title (or only placeholder) — uses YouTube oEmbed. */
+const resolvedYoutubeTitle = ref('')
+
+const showFooterChrome = computed(() => {
+  const url = String(SAGIDEEP_MOBILE_UPDATES_URL() || '').trim()
+  if (!url) return false
+  return loading.value || Boolean(normalizedFooterPromo.value)
+})
+
+/**
+ * Map Apps Script / sheet JSON (`mobileUpdateVideoLink`, etc.) onto the footer UI shape
+ * so title, description, link, and thumbnail all resolve reliably.
+ */
+const normalizedFooterPromo = computed(() => {
+  const raw = mobileUpdateData.value
+  if (!raw || typeof raw !== 'object') return null
+  const d = mergePayload(raw)
+
+  const videoLink = pickFirstString(d, [
+    'videoLink',
+    'mobileUpdateVideoLink',
+    'url',
+    'youtubeUrl',
+    'link',
+  ])
+  const explicitId = pickFirstString(d, ['youtubeVideoId', 'videoId', 'id'])
+  const id =
+    extractYoutubeVideoId(explicitId) || extractYoutubeVideoId(videoLink)
+
+  const hasFlag = 'isMobileUpdate' in d || 'isUpdate' in d
+  if (hasFlag) {
+    const flag = 'isMobileUpdate' in d ? d.isMobileUpdate : d.isUpdate
+    if (!parseIsUpdateCell(flag)) return null
+  }
+
+  const href =
+    videoLink ||
+    (id ? `https://www.youtube.com/watch?v=${encodeURIComponent(id)}` : '')
+  if (!href) return null
+
+  let thumbnail = pickFirstString(d, [
+    'thumbnail',
+    'thumbnailUrl',
+    'thumbUrl',
+    'imageUrl',
+    'poster',
+  ])
+  if (!thumbnail && id) {
+    thumbnail = `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`
+  }
+  if (!thumbnail) return null
+
+  const apiTitle = pickFirstString(d, TITLE_KEYS)
+  const fromOembed = String(resolvedYoutubeTitle.value || '').trim()
+  const title = apiTitle || fromOembed || 'Watch on YouTube'
+  const description = pickFirstString(d, DESC_KEYS)
+  const newBadgeText = pickFirstString(d, [
+    'newBadgeText',
+    'badgeText',
+    'new_badge_text',
+    'badge',
+  ])
+
+  return {
+    videoLink: href,
+    thumbnail,
+    title,
+    description,
+    newBadgeText,
+  }
+})
+
+const promoAriaLabelFromApi = computed(() => {
+  const p = normalizedFooterPromo.value
+  if (!p) return ''
+  const parts = [p.newBadgeText || null, p.title, p.description, p.videoLink].filter(Boolean)
+  return parts.join(' — ')
+})
+
+const loadFooterPromoFromSheet = async () => {
+  const url = SAGIDEEP_MOBILE_UPDATES_URL()
+  if (!url) {
+    clearMobileUpdatesChannelFromPayload()
+    loading.value = false
+    return
+  }
+  resolvedYoutubeTitle.value = ''
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+    const data = await response.json()
+    mobileUpdateData.value = data
+    syncMobileUpdatesChannelFromPayload(data)
+
+    const d = mergePayload(data)
+    const link = pickFirstString(d, [
+      'videoLink',
+      'mobileUpdateVideoLink',
+      'url',
+      'youtubeUrl',
+      'link',
+    ])
+    const explicitId = pickFirstString(d, ['youtubeVideoId', 'videoId', 'id'])
+    const vid =
+      extractYoutubeVideoId(explicitId) || extractYoutubeVideoId(link)
+    const watchUrl =
+      link ||
+      (vid ? `https://www.youtube.com/watch?v=${encodeURIComponent(vid)}` : '')
+    const apiTitle = pickFirstString(d, TITLE_KEYS)
+    if (watchUrl && (!apiTitle || apiTitle === 'Watch on YouTube')) {
+      const t = await fetchOEmbedTitle(watchUrl)
+      if (t) resolvedYoutubeTitle.value = t
+    }
+  } catch {
+    /* network or invalid JSON */
+    clearMobileUpdatesChannelFromPayload()
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(async () => {
+  await loadFooterPromoFromSheet()
+})
 
 /** Sheet I/J/K row loaded and should drive the footer (video id + url present). */
 const sheetPromoOn = computed(
@@ -92,38 +324,7 @@ const promoAriaLabel = computed(() => {
 })
 </script>
 
-<template>
-  <footer v-if="showFooterPromo" class="gf" role="contentinfo">
-    <a
-      v-if="promoUrl && promoThumbSrc"
-      class="gf__promo"
-      :href="promoUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-      :aria-label="promoAriaLabel"
-    >
-      <div class="gf__promo-top">
-        <div class="gf__promo-thumb-wrap">
-          <span v-if="promoNewBadgeText" class="gf__promo-new">{{ promoNewBadgeText }}</span>
-          <img
-            class="gf__promo-thumb"
-            :src="promoThumbSrc"
-            :alt="promoVideoTitle"
-            width="160"
-            height="90"
-            loading="lazy"
-            decoding="async"
-          />
-        </div>
-        <span class="gf__promo-update" lang="en" v-text="promoButtonLabel"></span>
-      </div>
-      <div class="gf__promo-text">
-        <span class="gf__promo-video-title">{{ promoVideoTitle }}</span>
-        <span v-if="promoVideoDescription" class="gf__promo-desc">{{ promoVideoDescription }}</span>
-      </div>
-    </a>
-  </footer>
-</template>
+
 
 <style scoped>
 .gf {
@@ -168,7 +369,7 @@ const promoAriaLabel = computed(() => {
 .gf__promo-top {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   width: 100%;
 }
@@ -232,9 +433,19 @@ const promoAriaLabel = computed(() => {
   object-position: center;
 }
 
+.gf__promo-meta {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 1px;
+}
+
 .gf__promo-update {
   grid-column: 3;
   justify-self: end;
+  align-self: start;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -267,13 +478,6 @@ const promoAriaLabel = computed(() => {
   background: #1b5e20;
 }
 
-.gf__promo-text {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
 .gf__promo-video-title {
   width: 100%;
   margin: 0;
@@ -282,6 +486,11 @@ const promoAriaLabel = computed(() => {
   line-height: 1.3;
   color: #eee;
   letter-spacing: 0.01em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 .gf__promo-desc {
@@ -291,5 +500,10 @@ const promoAriaLabel = computed(() => {
   font-weight: 400;
   line-height: 1.4;
   color: #9a9a9a;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 </style>

@@ -24,7 +24,7 @@ body {
   overflow: hidden;
 }
 
-/** Fills the viewport; `App.vue` scrolls `<main>` only so `GlobalFooter` stays fixed at the bottom. */
+/** Fills the viewport; `App.vue` scrolls `<main>` only; channel bar + `GlobalFooter` sit in the bottom chrome. */
 #app {
   height: 100vh;
   height: 100dvh;

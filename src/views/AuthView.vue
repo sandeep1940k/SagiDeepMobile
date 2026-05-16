@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAuthWebAppUrl, login, setStoredSession, signup, validateAuthUrl } from '../services/userAuth.js'
+import { getAuthWebAppUrl, SAGIDEEP_USERS_URL, login, setStoredSession, validateAuthUrl, fetchPublicIp } from '../services/userAuth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -69,33 +69,51 @@ async function onSubmit() {
     return
   }
   busy.value = true
+  const ip = await fetchPublicIp();
   try {
     if (mode.value === 'signup') {
-      const res = await signup({
-        name: name.value,
-        email: email.value,
-        password: password.value,
+      const response = await fetch(SAGIDEEP_USERS_URL(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'signup',
+          name: name.value,
+          email: email.value,
+          password: password.value,
+          ip,
+        }),
       })
-      if (res.ok) {
-        setStoredSession(res.user)
-        setFeedback('Account created successfully.', 'success')
+      const data = await response.json()
+      if (data.success) {
+        setStoredSession({name: name.value, email: email.value})
+        setFeedback(data.message, 'success')
         await new Promise((r) => setTimeout(r, 1400))
-        await router.replace(safeRedirectPath())
+        await router.push('/')
         return
       }
-      setServerError(res.message || 'Could not sign up.')
+      setServerError(data.message || 'Could not sign up.')
     } else {
-      const res = await login({
-        email: email.value,
-        password: password.value,
+      const response = await fetch(SAGIDEEP_USERS_URL(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login',
+          email: email.value,
+          password: password.value,
+        }),
       })
-      if (res.ok) {
-        setStoredSession(res.user)
-        await router.replace(safeRedirectPath())
+      const data = await response.json()
+      if (data.success) {
+        setStoredSession(data.user)
+        setFeedback(data.message, 'success')
+        await new Promise((r) => setTimeout(r, 1400))
+        await router.push('/')
         return
       }
-      setServerError(res.message || 'Could not log in.')
+      setServerError(data.message || 'Could not log in.')
     }
+  } catch {
+    setServerError('Could not reach the server. Please try again.')
   } finally {
     busy.value = false
   }

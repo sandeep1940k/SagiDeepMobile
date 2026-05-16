@@ -1,7 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeMount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { clearStoredSession, getStoredSession } from '../services/userAuth.js'
+import { SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
+import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
 
 const session = ref(null)
 
@@ -10,7 +12,28 @@ const route = useRoute()
 function refresh() {
   session.value = getStoredSession()
 }
-
+onBeforeMount(async () => {
+  const url = SAGIDEEP_TRACKING_URL()
+  if (!url) {
+    return
+  }
+  try {
+    const ip = await fetchPublicIp();
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      body: JSON.stringify({
+        ipAddress: ip,
+        activity: 'viewed_profile',
+      }),
+    })
+    // const data = await response.json()
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+})
 onMounted(refresh)
 watch(
   () => route.fullPath,

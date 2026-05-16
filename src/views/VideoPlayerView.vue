@@ -1,14 +1,19 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeMount, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { openYoutubeWatchPreferApp } from '../utils/openYoutubeWatch'
+import PageSkeleton from '../components/PageSkeleton.vue'
 import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
-import { getPlaylistById, getPlaylistVideo } from '../data/playlists'
+import { getPlaylistById, getPlaylistVideo, playlistsSheetState } from '../data/playlists'
 import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
 import { youtubeChannel } from '../data/youtubeChannel'
+import {
+  fetchAndSyncMobileUpdatesChannelStats,
+  mobileUpdatesChannelSync,
+} from '../data/mobileUpdatesChannelSync.js'
 import {
   useYoutubeChannelRuntimeStats,
   useYoutubeVideoRuntimeStats,
@@ -16,6 +21,8 @@ import {
 import { isMegaFileOrEmbedUrl, megaToEmbedUrl } from '../utils/megaVideo'
 import { formatSubscribersDisplayLine } from '../utils/subscribersDisplay.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
+import { SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
+import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +38,10 @@ const shareHint = ref(false)
 const playlist = computed(() => getPlaylistById(route.params.playlistId))
 const video = computed(() =>
   getPlaylistVideo(route.params.playlistId, route.params.videoId),
+)
+
+const watchBootstrapLoading = computed(
+  () => playlistsSheetState.loading && !(video.value && playlist.value),
 )
 
 watch(
@@ -113,7 +124,13 @@ const sheetSubscribersLine = computed(() => {
   return String(footerPromoSheet.subscribersLine || '').trim()
 })
 
+/** Same as `YoutubeChannelPromo` / `GlobalFooter` — from `SAGIDEEP_MOBILE_UPDATES` JSON. */
+const mobileUpdatesSubscriberCell = computed(() =>
+  String(mobileUpdatesChannelSync.subscriberCell || '').trim(),
+)
+
 const channelStatsFromApiEnabled = computed(() => {
+  if (mobileUpdatesSubscriberCell.value) return false
   if (sheetSubscribersLine.value) return false
   if (FOOTER_PROMO_SHEET_ENABLED) return true
   return !String(youtubeChannel.manualStatsLine || '').trim()
@@ -123,6 +140,8 @@ const { loading: channelStatsLoading, line: channelApiStatsLine } = useYoutubeCh
   { enabled: channelStatsFromApiEnabled },
 )
 const channelDisplayStatsLine = computed(() => {
+  if (mobileUpdatesSubscriberCell.value)
+    return formatSubscribersDisplayLine(mobileUpdatesSubscriberCell.value)
   if (sheetSubscribersLine.value) return formatSubscribersDisplayLine(sheetSubscribersLine.value)
   if (FOOTER_PROMO_SHEET_ENABLED && !footerPromoSheet.ready) return ''
   if (FOOTER_PROMO_SHEET_ENABLED && footerPromoSheet.ready) return channelApiStatsLine.value
@@ -271,8 +290,31 @@ function attachVideoOrientationListeners(el) {
 
 let removeVideoOrientationListeners = () => {}
 
+onBeforeMount(async () => {
+  const url = SAGIDEEP_TRACKING_URL()
+  if (!url) {
+    return
+  }
+  try {
+    const ip = await fetchPublicIp();
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      body: JSON.stringify({
+        ipAddress: ip,
+        activity: 'viewed_video',
+      }),
+    })
+    // const data = await response.json()
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+})
 onMounted(() => {
   document.addEventListener('fullscreenchange', onDocumentFullscreenChange)
+  void fetchAndSyncMobileUpdatesChannelStats()
 })
 
 onUnmounted(() => {
@@ -457,7 +499,11 @@ async function onShare() {
       <button type="button" class="watch__back" @click="goBack">‹ Back</button>
     </header>
 
-    <div v-if="video && playlist" class="watch__body">
+    <div v-if="watchBootstrapLoading" class="watch__body">
+      <PageSkeleton variant="watch" />
+    </div>
+
+    <div v-else-if="video && playlist" class="watch__body">
       <div v-if="showPlayer && !loadError" class="watch__player-wrap">
         <div v-if="useMegaEmbed && megaEmbedSrc" class="watch__mega">
           <div class="watch__mega-embed">

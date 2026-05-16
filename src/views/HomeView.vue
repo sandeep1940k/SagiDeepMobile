@@ -1,37 +1,100 @@
-<script setup>
-import PlaylistRow from '../components/PlaylistRow.vue'
-import { playlistsIndex } from '../data/playlists'
-import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
-</script>
-
 <template>
   <div class="shell">
     <div class="shell__glow" aria-hidden="true" />
 
-    <section class="vault" aria-label="Playlists">      <div class="vault__head">
-        <h2 class="vault__label">Playlists</h2>
-        <span class="vault__count">{{
-          playlistsIndex.length === 1 ? '1 list' : `${playlistsIndex.length} lists`
-        }}</span>
-      </div>
-      <ul class="vault__list">
-        <li v-for="p in playlistsIndex" :key="p.id" class="vault__item">
-          <PlaylistRow
-            :playlist-id="p.id"
-            :title="p.name"
-            :video-count="p.videoCount"
-            :variant="p.variant"
-            :cover-src="p.listCoverImg"
-            :coming-soon="p.isComingSoon"
-            :is-paid="p.isPaid"
-            :paid-amount="p.amount"
-            :premium-locked="p.isPaid && !p.isComingSoon && !isPremiumPlaylistUnlocked(p.id)"
-          />
-        </li>
-      </ul>
+    <section class="vault" aria-label="Playlists">
+      <template v-if="showSkeleton">
+        <PageSkeleton variant="list" :rows="7" />
+      </template>
+      <template v-else>
+        <div class="vault__head">
+          <h2 class="vault__label">Playlists</h2>
+          <span class="vault__count">{{
+            playlists.length === 1 ? '1 list' : `${playlists.length} lists`
+          }}</span>
+        </div>
+        <ul class="vault__list">
+          <li v-for="p in playlists" :key="p.id" class="vault__item">
+            <PlaylistRow
+              :playlist-id="p.id"
+              :title="p.name"
+              :video-count="p.videoCount"
+              :variant="p.variant"
+              :cover-src="p.coverImg"
+              :coming-soon="p.isComingSoon"
+              :is-paid="p.isPaid"
+              :paid-amount="p.amount"
+            />
+          </li>
+        </ul>
+      </template>
     </section>
   </div>
 </template>
+
+
+<script setup>
+import { computed, onBeforeMount, onMounted, ref } from 'vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
+import PlaylistRow from '../components/PlaylistRow.vue'
+import { playlistsSheetState } from '../data/playlists.js'
+import { SAGIDEEP_PLAYLISTS_URL, SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
+import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
+
+const playlists = ref([])
+const loading = ref(true)
+
+const showSkeleton = computed(() => playlistsSheetState.loading || loading.value)
+
+onBeforeMount(async () => {
+  const url = SAGIDEEP_TRACKING_URL()
+  if (!url) {
+    return
+  }
+  try {
+    const ip = await fetchPublicIp();
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      body: JSON.stringify({
+        ipAddress: ip,
+        activity: 'viewed_home',
+      }),
+    })
+    // const data = await response.json()
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+})
+
+onMounted(async () => {
+  const url = SAGIDEEP_PLAYLISTS_URL()
+  if (!url) {
+    loading.value = false
+    return
+  }
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      body: JSON.stringify({
+        action: 'doGetPlaylists',
+      }),
+    })
+    const data = await response.json()
+    playlists.value = data.playlists
+  } catch {
+    /* network or invalid JSON */
+  } finally {
+    loading.value = false
+  }
+})
+</script>
+
+
 
 <style scoped>
 .shell {

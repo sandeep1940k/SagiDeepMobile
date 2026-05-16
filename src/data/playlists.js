@@ -16,8 +16,10 @@
  * same `Id` repeats, playlist flags are only updated from non-empty cells so later blank cells do not clear
  * `isComingSoon` / `isPaid`. Duplicate `Videos Id` in one playlist replaces the earlier row (last row wins).
  */
+import { reactive } from 'vue'
 import { isMegaFileOrEmbedUrl } from '../utils/megaVideo.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
+import { formatVideoDurationDisplay } from '../utils/durationDisplay.js'
 
 const DEFAULT_SHEET_ID = '1qZLjU53fHVZg5Uj4ect0P5Gb29s6oJ-Mp335gUlzDPE'
 const DEFAULT_SHEET_NAME = 'Sheet1'
@@ -176,7 +178,7 @@ export function rowsToPlaylistsById(rows) {
       videoSrc: String(videoSrc || '').trim(),
       youtubeVideoId: String(youtubeVideoId || '').trim(),
       youtubeVideoLink: String(youtubeVideoLink || '').trim(),
-      duration: String(duration || '').trim(),
+      duration: formatVideoDurationDisplay(duration),
       channelLine: 'SagiDeep',
       isVideoComingSoon: parseSheetTruthy(isVideoComingSoonCell),
     })
@@ -246,6 +248,11 @@ function indexFromById(byId) {
     })
 }
 
+/** True while the playlist CSV is fetching (first load or refresh). */
+export const playlistsSheetState = reactive({
+  loading: false,
+})
+
 /** @type {Record<string, any>} */
 export let playlistsById = {}
 
@@ -262,13 +269,14 @@ function applyPlaylistsById(byId) {
  * On failure, empty parse, disabled fetch, or error — catalogs are cleared (`{}`).
  */
 export async function loadPlaylistsFromSheet() {
-  if (!SHEET_FETCH_ENABLED) {
-    console.warn('[playlists] sheet fetch disabled (VITE_PLAYLIST_SHEET_ENABLED=0); playlists empty')
-    applyPlaylistsById({})
-    return
-  }
-  const url = buildPlaylistSheetCsvUrl()
+  playlistsSheetState.loading = true
   try {
+    if (!SHEET_FETCH_ENABLED) {
+      console.warn('[playlists] sheet fetch disabled (VITE_PLAYLIST_SHEET_ENABLED=0); playlists empty')
+      applyPlaylistsById({})
+      return
+    }
+    const url = buildPlaylistSheetCsvUrl()
     const response = await fetch(url)
     if (!response.ok) {
       console.warn('[playlists] sheet fetch failed', response.status, response.statusText)
@@ -287,6 +295,8 @@ export async function loadPlaylistsFromSheet() {
   } catch (e) {
     console.warn('[playlists] sheet fetch error', e)
     applyPlaylistsById({})
+  } finally {
+    playlistsSheetState.loading = false
   }
 }
 
