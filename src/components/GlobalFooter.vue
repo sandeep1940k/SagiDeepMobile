@@ -43,6 +43,7 @@ import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
 import { youtubeChannel } from '../data/youtubeChannel'
 import { SAGIDEEP_MOBILE_UPDATES_URL } from '../services/userAuth.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 import { extractYoutubeVideoId } from '../utils/youtubeVideoId.js'
 import {
   mergeMobileUpdatesPayload,
@@ -197,11 +198,7 @@ const loadFooterPromoFromSheet = async () => {
   }
   resolvedYoutubeTitle.value = ''
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    })
+    const response = await postAppsScriptJson(url, { action: 'footerMobileUpdate' })
     const data = await response.json()
     mobileUpdateData.value = data
     syncMobileUpdatesChannelFromPayload(data)

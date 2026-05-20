@@ -6,21 +6,25 @@
       <template v-if="showSkeleton">
         <PageSkeleton variant="list" :rows="7" />
       </template>
+      <template v-else-if="playlistApiState.error">
+        <p class="vault__error">{{ playlistApiState.error }}</p>
+        <button type="button" class="vault__retry" @click="reload">Try again</button>
+      </template>
       <template v-else>
         <div class="vault__head">
           <h2 class="vault__label">Playlists</h2>
           <span class="vault__count">{{
-            playlists.length === 1 ? '1 list' : `${playlists.length} lists`
+            playlistsIndex.length === 1 ? '1 list' : `${playlistsIndex.length} lists`
           }}</span>
         </div>
         <ul class="vault__list">
-          <li v-for="p in playlists" :key="p.id" class="vault__item">
+          <li v-for="p in playlistsIndex" :key="p.id" class="vault__item">
             <PlaylistRow
               :playlist-id="p.id"
               :title="p.name"
               :video-count="p.videoCount"
               :variant="p.variant"
-              :cover-src="p.coverImg"
+              :cover-src="p.listCoverImg"
               :coming-soon="p.isComingSoon"
               :is-paid="p.isPaid"
               :paid-amount="p.amount"
@@ -32,69 +36,39 @@
   </div>
 </template>
 
-
 <script setup>
-import { computed, onBeforeMount, onMounted, ref } from 'vue'
+import { computed, onBeforeMount } from 'vue'
 import PageSkeleton from '../components/PageSkeleton.vue'
 import PlaylistRow from '../components/PlaylistRow.vue'
-import { playlistsSheetState } from '../data/playlists.js'
-import { SAGIDEEP_PLAYLISTS_URL, SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
+import {
+  loadPlaylistsFromApi,
+  playlistApiState,
+  playlistsIndex,
+} from '../services/playlistApi.js'
+import { SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
 import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
-const playlists = ref([])
-const loading = ref(true)
+const showSkeleton = computed(() => playlistApiState.loading)
 
-const showSkeleton = computed(() => playlistsSheetState.loading || loading.value)
+function reload() {
+  void loadPlaylistsFromApi()
+}
 
 onBeforeMount(async () => {
   const url = SAGIDEEP_TRACKING_URL()
-  if (!url) {
-    return
-  }
+  if (!url) return
   try {
-    const ip = await fetchPublicIp();
-    const response = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-      body: JSON.stringify({
-        ipAddress: ip,
-        activity: 'viewed_home',
-      }),
+    const ip = await fetchPublicIp()
+    await postAppsScriptJson(url, {
+      ipAddress: ip,
+      activity: 'viewed_home',
     })
-    // const data = await response.json()
-    console.log(response)
-  } catch (error) {
-    console.error(error)
-  }
-})
-
-onMounted(async () => {
-  const url = SAGIDEEP_PLAYLISTS_URL()
-  if (!url) {
-    loading.value = false
-    return
-  }
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-      body: JSON.stringify({
-        action: 'doGetPlaylists',
-      }),
-    })
-    const data = await response.json()
-    playlists.value = data.playlists
   } catch {
-    /* network or invalid JSON */
-  } finally {
-    loading.value = false
+    /* tracking is best-effort */
   }
 })
 </script>
-
-
 
 <style scoped>
 .shell {
@@ -139,7 +113,6 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  text-transform: none;
   color: #f1f1f1;
 }
 
@@ -160,5 +133,23 @@ onMounted(async () => {
 
 .vault__item {
   margin: 0;
+}
+
+.vault__error {
+  margin: 0 0 12px;
+  color: #f87171;
+  font-size: 14px;
+}
+
+.vault__retry {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #eee;
+  cursor: pointer;
 }
 </style>

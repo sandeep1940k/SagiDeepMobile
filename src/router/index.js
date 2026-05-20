@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getPlaylistById } from '../data/playlists.js'
+import { getPlaylistById } from '../services/playlistApi.js'
 import { logPlaylistOpen } from '../services/playlistSheetLog.js'
+import { getStoredSession } from '../services/userAuth.js'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -31,6 +32,19 @@ const router = createRouter({
       component: () => import('../views/VideoPlayerView.vue'),
     },
   ],
+})
+
+/** Video playback requires a stored session; return to the same watch URL after login. */
+router.beforeEach((to) => {
+  if (to.name !== 'watch') return true
+  if (getStoredSession()) return true
+  return {
+    name: 'auth',
+    query: {
+      mode: 'login',
+      redirect: to.fullPath,
+    },
+  }
 })
 
 /** On playlist tap: POST ip, playlistName, time (+ playlistId) to Google Sheet via Apps Script. */

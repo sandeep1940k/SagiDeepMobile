@@ -5,6 +5,7 @@
 
 import { SAGIDEEP_USERS, SAGIDEEP_PLAYLISTS, SAGIDEEP_MOBILE_UPDATES, SAGIDEEP_TRACKING, SHEET_URL } from '../config/config.js'
 import { USER_AUTH_SECRET, USER_AUTH_SHEET_URL } from '../config/userAuthSheetUrl.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
 const SESSION_KEY = 'sagideep_session_v1'
 
@@ -230,12 +231,7 @@ export async function postWebAppJson(body, opts) {
   const secret = rawAuthSecret()
   const payload = { ...(body && typeof body === 'object' ? body : {}) }
   if (secret) payload.secret = secret
-  const r = await fetch(validated.url, {
-    method: 'POST',
-    cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  const r = await postAppsScriptJson(validated.url, payload)
   const text = await r.text()
   try {
     return JSON.parse(text)
@@ -385,11 +381,7 @@ async function postAuth(action, fields) {
 
   let r
   try {
-    r = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      body: JSON.stringify(body),
-    })
+    r = await postAppsScriptJson(url, body)
   } catch (e) {
     return { ok: false, error: 'network', message: String(e?.message || 'Network error') }
   }

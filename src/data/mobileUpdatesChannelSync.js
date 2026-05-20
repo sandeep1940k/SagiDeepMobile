@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { pickMobileUpdatesSubscriberRaw } from '../utils/mobileUpdatesPayload.js'
 import { SAGIDEEP_MOBILE_UPDATES_URL } from '../services/userAuth.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
 /**
  * Subscriber line from **`SAGIDEEP_MOBILE_UPDATES`** (set after fetch).
@@ -26,11 +27,7 @@ export async function fetchAndSyncMobileUpdatesChannelStats() {
     return
   }
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    })
+    const res = await postAppsScriptJson(url, { action: 'footerMobileUpdate' })
     const data = await res.json()
     syncMobileUpdatesChannelFromPayload(data)
   } catch {

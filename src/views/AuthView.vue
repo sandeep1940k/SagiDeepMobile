@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAuthWebAppUrl, SAGIDEEP_USERS_URL, login, setStoredSession, validateAuthUrl, fetchPublicIp } from '../services/userAuth.js'
+import { getAuthWebAppUrl, login, setStoredSession, signup, validateAuthUrl } from '../services/userAuth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -53,6 +53,8 @@ function safeRedirectPath() {
   return s
 }
 
+const redirectIsWatch = computed(() => /^\/watch\//i.test(safeRedirectPath()))
+
 function setMode(m) {
   const next = m === 'signup' ? 'signup' : 'login'
   if (next === mode.value) return
@@ -69,48 +71,34 @@ async function onSubmit() {
     return
   }
   busy.value = true
-  const ip = await fetchPublicIp();
   try {
     if (mode.value === 'signup') {
-      const response = await fetch(SAGIDEEP_USERS_URL(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'signup',
-          name: name.value,
-          email: email.value,
-          password: password.value,
-          ip,
-        }),
+      const res = await signup({
+        name: name.value,
+        email: email.value,
+        password: password.value,
       })
-      const data = await response.json()
-      if (data.success) {
-        setStoredSession({name: name.value, email: email.value})
-        setFeedback(data.message, 'success')
+      if (res.ok) {
+        setStoredSession(res.user)
+        setFeedback('Account created.', 'success')
         await new Promise((r) => setTimeout(r, 1400))
-        await router.push('/')
+        await router.push(safeRedirectPath())
         return
       }
-      setServerError(data.message || 'Could not sign up.')
+      setServerError(res.message || 'Could not sign up.')
     } else {
-      const response = await fetch(SAGIDEEP_USERS_URL(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'login',
-          email: email.value,
-          password: password.value,
-        }),
+      const res = await login({
+        email: email.value,
+        password: password.value,
       })
-      const data = await response.json()
-      if (data.success) {
-        setStoredSession(data.user)
-        setFeedback(data.message, 'success')
+      if (res.ok) {
+        setStoredSession(res.user)
+        setFeedback('Signed in.', 'success')
         await new Promise((r) => setTimeout(r, 1400))
-        await router.push('/')
+        await router.push(safeRedirectPath())
         return
       }
-      setServerError(data.message || 'Could not log in.')
+      setServerError(res.message || 'Could not log in.')
     }
   } catch {
     setServerError('Could not reach the server. Please try again.')
@@ -149,7 +137,13 @@ async function onSubmit() {
       </div>
       <p class="auth__subtitle">
         {{
-          mode === 'login' ? 'Welcome back — enter your details.' : 'Create your account to continue.'
+          redirectIsWatch && mode === 'login'
+            ? 'Sign in to watch this video.'
+            : redirectIsWatch && mode === 'signup'
+              ? 'Create an account to watch this video.'
+              : mode === 'login'
+                ? 'Welcome back — enter your details.'
+                : 'Create your account to continue.'
         }}
       </p>
 

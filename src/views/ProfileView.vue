@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { clearStoredSession, getStoredSession } from '../services/userAuth.js'
 import { SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
 import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
 const session = ref(null)
 
@@ -19,14 +20,9 @@ onBeforeMount(async () => {
   }
   try {
     const ip = await fetchPublicIp();
-    const response = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-      body: JSON.stringify({
-        ipAddress: ip,
-        activity: 'viewed_profile',
-      }),
+    const response = await postAppsScriptJson(url, {
+      ipAddress: ip,
+      activity: 'viewed_profile',
     })
     // const data = await response.json()
     console.log(response)

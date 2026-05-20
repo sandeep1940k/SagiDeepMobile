@@ -7,7 +7,12 @@ import { openYoutubeWatchPreferApp } from '../utils/openYoutubeWatch'
 import PageSkeleton from '../components/PageSkeleton.vue'
 import { FOOTER_PROMO_SHEET_ENABLED } from '../config/config.js'
 import { footerPromoSheet } from '../data/footerPromoSheet.js'
-import { getPlaylistById, getPlaylistVideo, playlistsSheetState } from '../data/playlists'
+import {
+  getPlaylistById,
+  getPlaylistVideo,
+  loadPlaylistVideosFromApi,
+  playlistApiState,
+} from '../services/playlistApi.js'
 import { isPremiumPlaylistUnlocked } from '../utils/premiumUnlock.js'
 import { youtubeChannel } from '../data/youtubeChannel'
 import {
@@ -23,6 +28,7 @@ import { formatSubscribersDisplayLine } from '../utils/subscribersDisplay.js'
 import { episodeYoutubeVideoId } from '../utils/youtubeVideoId.js'
 import { SAGIDEEP_TRACKING_URL } from '../services/userAuth.js'
 import { fetchPublicIp } from '../services/sheetClickIpTrack.js'
+import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,7 +47,7 @@ const video = computed(() =>
 )
 
 const watchBootstrapLoading = computed(
-  () => playlistsSheetState.loading && !(video.value && playlist.value),
+  () => playlistApiState.loading && !(video.value && playlist.value),
 )
 
 watch(
@@ -297,14 +303,9 @@ onBeforeMount(async () => {
   }
   try {
     const ip = await fetchPublicIp();
-    const response = await fetch(url, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-      body: JSON.stringify({
-        ipAddress: ip,
-        activity: 'viewed_video',
-      }),
+    const response = await postAppsScriptJson(url, {
+      ipAddress: ip,
+      activity: 'viewed_video',
     })
     // const data = await response.json()
     console.log(response)
@@ -312,7 +313,9 @@ onBeforeMount(async () => {
     console.error(error)
   }
 })
-onMounted(() => {
+onMounted(async () => {
+  const pid = String(route.params.playlistId ?? '').trim()
+  if (pid && !video.value) await loadPlaylistVideosFromApi(pid)
   document.addEventListener('fullscreenchange', onDocumentFullscreenChange)
   void fetchAndSyncMobileUpdatesChannelStats()
 })

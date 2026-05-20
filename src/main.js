@@ -4,12 +4,12 @@ import { App as CapacitorApp } from '@capacitor/app'
 import './style.css'
 import App from './App.vue'
 import router from './router'
-import { loadPlaylistsFromSheet } from './data/playlists.js'
+import { loadPlaylistsFromApi } from './services/playlistApi.js'
 import { loadFooterPromoFromSheet } from './data/footerPromoSheet.js'
 
 const app = createApp(App).use(router)
 app.mount('#app')
-void loadPlaylistsFromSheet()
+void loadPlaylistsFromApi()
 void loadFooterPromoFromSheet()
 
 // Android hardware back: follow WebView history (same stack Vue Router uses via History API).
