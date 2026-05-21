@@ -1,4 +1,4 @@
-package com.example.mobileapp;
+package com.sandeep.sagideep;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

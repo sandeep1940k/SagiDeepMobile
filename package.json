@@ -11,11 +11,13 @@
     "icons:android": "node scripts/generate-android-launcher-icons.mjs"
   },
   "dependencies": {
+    "@capacitor-community/fcm": "^8.1.0",
     "@capacitor/android": "^8.3.3",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^7.6.4",
     "@capacitor/core": "^8.3.3",
+    "@capacitor/push-notifications": "^8.0.0",
     "@capacitor/screen-orientation": "^8.0.0",
     "vue": "^3.5.32",
     "vue-router": "^4.6.4"

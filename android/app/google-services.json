@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "325700644138",
+    "project_id": "sagideep9756",
+    "storage_bucket": "sagideep9756.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:325700644138:android:5b9e341398411109444253",
+        "android_client_info": {
+          "package_name": "com.sandeep.sagideep"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOMz27xCQn0uttGojERIOxEiwxkWYVJUM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

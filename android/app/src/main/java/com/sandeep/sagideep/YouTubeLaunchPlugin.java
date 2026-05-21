@@ -1,4 +1,4 @@
-package com.example.mobileapp;
+package com.sandeep.sagideep;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;

@@ -1,12 +1,17 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import ChannelSubscribeBar from './components/ChannelSubscribeBar.vue'
 import GlobalAppHeader from './components/GlobalAppHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
 import { useSheetClickIpTrack } from './composables/useSheetClickIpTrack.js'
+import { initPushNotifications } from './services/pushNotifications.js'
 
 useSheetClickIpTrack()
+
+onMounted(() => {
+  void initPushNotifications()
+})
 
 const route = useRoute()
 /** Account bar + channel promo; hidden on full-screen watch and on auth. */
