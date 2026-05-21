@@ -1,19 +1,29 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import ChannelSubscribeBar from './components/ChannelSubscribeBar.vue'
 import GlobalAppHeader from './components/GlobalAppHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
 import { useSheetClickIpTrack } from './composables/useSheetClickIpTrack.js'
+import { syncAdBannerForRoute } from './services/admob.js'
 import { initPushNotifications } from './services/pushNotifications.js'
 
 useSheetClickIpTrack()
 
+const route = useRoute()
+
 onMounted(() => {
   void initPushNotifications()
+  void syncAdBannerForRoute(route.name)
 })
 
-const route = useRoute()
+watch(
+  () => route.name,
+  (name) => {
+    void syncAdBannerForRoute(name)
+  },
+)
+
 /** Account bar + channel promo; hidden on full-screen watch and on auth. */
 const showGlobalChrome = computed(() => route.name !== 'watch' && route.name !== 'auth')
 const showGlobalFooter = computed(() => showGlobalChrome.value)

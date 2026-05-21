@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .env
 !.env.example
+!.env.production
 
 # Large media — use MEGA/streaming URLs in playlists.js; do not commit multi‑GB files
 public/videos/**/*.mp4

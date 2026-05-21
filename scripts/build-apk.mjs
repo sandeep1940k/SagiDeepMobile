@@ -164,6 +164,7 @@ function run(label, command, args, cwd, shell = process.platform === 'win32') {
   }
 }
 
+console.log('\n▶ AdMob: live banner (VITE_ADMOB_PRODUCTION via .env.production)\n')
 run('Vite production build', 'npm', ['run', 'build'], root)
 run('Capacitor sync (android)', 'npx', ['cap', 'sync', 'android'], root)
 ensureLocalProperties()

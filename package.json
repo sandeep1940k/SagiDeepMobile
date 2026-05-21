@@ -11,6 +11,7 @@
     "icons:android": "node scripts/generate-android-launcher-icons.mjs"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.0.0",
     "@capacitor-community/fcm": "^8.1.0",
     "@capacitor/android": "^8.3.3",
     "@capacitor/app": "^8.1.0",
