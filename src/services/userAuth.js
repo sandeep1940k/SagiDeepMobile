@@ -3,14 +3,12 @@
  * Expects `{ success: true|false, message?: string }` and optional `{ user }`.
  */
 
-import { SAGIDEEP_USERS, SAGIDEEP_PLAYLISTS, SAGIDEEP_MOBILE_UPDATES, SAGIDEEP_TRACKING, SHEET_URL } from '../config/config.js'
-import { USER_AUTH_SECRET, USER_AUTH_SHEET_URL } from '../config/userAuthSheetUrl.js'
+import { SAGIDEEP_USERS, SAGIDEEP_PLAYLISTS, SAGIDEEP_MOBILE_UPDATES, SAGIDEEP_TRACKING } from '../config/config.js'
+import { USER_AUTH_SECRET } from '../config/userAuthSheetUrl.js'
 import { postAppsScriptJson } from '../utils/appsScriptFetch.js'
 
 const SESSION_KEY = 'sagideep_session_v1'
 
-const DEV_APPS_SCRIPT_PROXY_PATH = '/__sagideep_sheet_auth'
-const DEV_IP_TRACK_PROXY_PATH = '/__sagideep_sheet_ip_track'
 const DEV_USERS_PROXY_PATH = '/__sagideep_users'
 const DEV_PLAYLISTS_PROXY_PATH = '/__sagideep_playlists'
 const DEV_MOBILE_UPDATES_PROXY_PATH = '/__sagideep_mobile_updates'
@@ -30,40 +28,19 @@ function shouldUseAppsScriptDevProxy(remote) {
 }
 
 export function SAGIDEEP_USERS_URL() {
-  const remote = String(SAGIDEEP_USERS ?? '').trim()
-  if (!remote) return ''
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_USERS_PROXY_PATH}`
-  }
-  return remote
+  return withDevProxy(String(SAGIDEEP_USERS ?? '').trim())
 }
 
 export function SAGIDEEP_TRACKING_URL() {
-  const remote = String(SAGIDEEP_TRACKING ?? '').trim()
-  if (!remote) return ''
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_TRACKING_PROXY_PATH}`
-  }
-  return remote
+  return withDevProxy(String(SAGIDEEP_TRACKING ?? '').trim())
 }
 
-
 export function SAGIDEEP_PLAYLISTS_URL() {
-  const remote = String(SAGIDEEP_PLAYLISTS ?? '').trim()
-  if (!remote) return ''
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_PLAYLISTS_PROXY_PATH}`
-  }
-  return remote
+  return withDevProxy(String(SAGIDEEP_PLAYLISTS ?? '').trim())
 }
 
 export function SAGIDEEP_MOBILE_UPDATES_URL() {
-  const remote = String(SAGIDEEP_MOBILE_UPDATES ?? '').trim()
-  if (!remote) return ''
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_MOBILE_UPDATES_PROXY_PATH}`
-  }
-  return remote
+  return withDevProxy(String(SAGIDEEP_MOBILE_UPDATES ?? '').trim())
 }
 
 /** GET playlist web app with `action=doGetVideosByPlaylistId` + `playlistId` (`e.parameter` in Apps Script). */
@@ -88,47 +65,30 @@ export function SAGIDEEP_PLAYLIST_VIDEOS(playlistId) {
 function resolvedRemoteAuthUrl() {
   const fromEnv = String(import.meta.env.VITE_USER_AUTH_URL ?? '').trim()
   if (fromEnv) return fromEnv
-  const fromConfig = String(SHEET_URL ?? '').trim()
-  if (fromConfig) return fromConfig
-  return String(USER_AUTH_SHEET_URL ?? '').trim()
+  return String(SAGIDEEP_USERS ?? '').trim()
 }
 
-/** Web app URL for footer / sheet features: `SHEET_URL` from config only (not `VITE_USER_AUTH_URL`). */
-function resolvedConfigSheetWebAppUrl() {
-  const fromConfig = String(SHEET_URL ?? '').trim()
-  if (fromConfig) return fromConfig
-  return String(USER_AUTH_SHEET_URL ?? '').trim()
+function devProxyPathForRemote(remote) {
+  const r = String(remote ?? '').trim()
+  if (sameWebAppPath(r, SAGIDEEP_USERS)) return DEV_USERS_PROXY_PATH
+  if (sameWebAppPath(r, SAGIDEEP_MOBILE_UPDATES)) return DEV_MOBILE_UPDATES_PROXY_PATH
+  if (sameWebAppPath(r, SAGIDEEP_TRACKING)) return DEV_TRACKING_PROXY_PATH
+  if (sameWebAppPath(r, SAGIDEEP_PLAYLISTS)) return DEV_PLAYLISTS_PROXY_PATH
+  return DEV_TRACKING_PROXY_PATH
 }
 
-
+function withDevProxy(remote) {
+  const r = String(remote ?? '').trim()
+  if (!r) return ''
+  if (shouldUseAppsScriptDevProxy(r) && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${devProxyPathForRemote(r)}`
+  }
+  return r
+}
 
 function rawAuthUrl() {
-  const remote = resolvedRemoteAuthUrl()
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_APPS_SCRIPT_PROXY_PATH}`
-  }
-  return remote
+  return withDevProxy(resolvedRemoteAuthUrl())
 }
-
-function rawConfigSheetUrl() {
-  const remote = resolvedConfigSheetWebAppUrl()
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_APPS_SCRIPT_PROXY_PATH}`
-  }
-  return remote
-}
-
-/** Sign-up web app (`SAGIDEEP_USERS`): same-origin proxy in dev to avoid browser CORS to `script.google.com`. */
-function rawSagideepUsersUrl() {
-  const remote = String(SAGIDEEP_USERS ?? '').trim()
-  if (!remote) return ''
-  if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${DEV_USERS_PROXY_PATH}`
-  }
-  return remote
-}
-
-
 
 function sameWebAppPath(a, b) {
   const x = String(a ?? '').trim()
@@ -143,24 +103,10 @@ function sameWebAppPath(a, b) {
   }
 }
 
-/**
- * @param {boolean} useSheetOnly
- * @param {string} [sheetUrlOverride] — optional full `/exec` URL (e.g. IP tracking). Dev: ip-track proxy if deployment differs from `SHEET_URL`.
- */
-function rawUrlForWebAppPost(useSheetOnly, sheetUrlOverride) {
+/** @param {string} [sheetUrlOverride] — full `/exec` URL; defaults to auth (`SAGIDEEP_USERS`). */
+function rawUrlForWebAppPost(sheetUrlOverride) {
   const o = String(sheetUrlOverride ?? '').trim()
-  if (o) {
-    const remote = o
-    if (shouldUseAppsScriptDevProxy(remote) && typeof window !== 'undefined' && window.location?.origin) {
-      const baseSheet = resolvedConfigSheetWebAppUrl()
-      if (baseSheet && sameWebAppPath(remote, baseSheet)) {
-        return `${window.location.origin}${DEV_APPS_SCRIPT_PROXY_PATH}`
-      }
-      return `${window.location.origin}${DEV_IP_TRACK_PROXY_PATH}`
-    }
-    return remote
-  }
-  return useSheetOnly ? rawConfigSheetUrl() : rawAuthUrl()
+  return o ? withDevProxy(o) : rawAuthUrl()
 }
 
 function rawAuthSecret() {
@@ -179,7 +125,7 @@ export function validateAuthUrl(raw) {
   if (!s) {
     return {
       ok: false,
-      reason: 'Set `SHEET_URL` in `src/config/config.js` or `VITE_USER_AUTH_URL` in `.env`.',
+      reason: 'Set `SAGIDEEP_USERS` in `src/config/config.js` or `VITE_USER_AUTH_URL` in `.env`.',
     }
   }
   if (/docs\.google\.com\/spreadsheets/i.test(s)) {
@@ -194,16 +140,19 @@ export function validateAuthUrl(raw) {
   } catch {
     return { ok: false, reason: 'Auth URL is not a valid URL.' }
   }
-  if (
+  const devProxies = [
+    DEV_USERS_PROXY_PATH,
+    DEV_PLAYLISTS_PROXY_PATH,
+    DEV_MOBILE_UPDATES_PROXY_PATH,
+    DEV_TRACKING_PROXY_PATH,
+  ]
+  const isDevProxy =
     import.meta.env.DEV &&
-    (parsed.pathname === DEV_APPS_SCRIPT_PROXY_PATH ||
-      parsed.pathname === DEV_IP_TRACK_PROXY_PATH ||
-      parsed.pathname === DEV_USERS_PROXY_PATH ||
-      parsed.pathname.startsWith(`${DEV_APPS_SCRIPT_PROXY_PATH}/`) ||
-      parsed.pathname.startsWith(`${DEV_IP_TRACK_PROXY_PATH}/`) ||
-      parsed.pathname.startsWith(`${DEV_USERS_PROXY_PATH}/`)) &&
+    devProxies.some(
+      (p) => parsed.pathname === p || parsed.pathname.startsWith(`${p}/`),
+    ) &&
     /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)
-  ) {
+  if (isDevProxy) {
     return { ok: true, url: s.replace(/\/+$/, '') }
   }
   if (!/^script\.google\.com$/i.test(parsed.hostname)) {
@@ -216,15 +165,15 @@ export function validateAuthUrl(raw) {
 }
 
 /**
- * POST JSON to the Web App. Auth uses `VITE_USER_AUTH_URL` → `SHEET_URL` → fallback.
+ * POST JSON to a Web App. Pass **`sheetUrlOverride`** (`SAGIDEEP_MOBILE_UPDATES`, `SAGIDEEP_TRACKING`, etc.).
+ * Omit override only for auth-shaped calls (defaults to `SAGIDEEP_USERS`).
  * @param {Record<string, unknown>} body
- * @param {{ useConfigSheetUrlOnly?: boolean, sheetUrlOverride?: string }} [opts] — if `useConfigSheetUrlOnly`, POST to config sheet URL; optional **`sheetUrlOverride`** is another full `/exec` URL (e.g. IP tracking).
+ * @param {{ sheetUrlOverride?: string }} [opts]
  * @returns {Promise<unknown>}
  */
 export async function postWebAppJson(body, opts) {
-  const useSheetOnly = opts?.useConfigSheetUrlOnly === true
   const sheetUrlOverride = String(opts?.sheetUrlOverride ?? '').trim()
-  const validated = validateAuthUrl(rawUrlForWebAppPost(useSheetOnly, sheetUrlOverride))
+  const validated = validateAuthUrl(rawUrlForWebAppPost(sheetUrlOverride))
   if (!validated.ok) {
     throw new Error(validated.reason)
   }

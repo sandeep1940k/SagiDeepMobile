@@ -5,8 +5,6 @@ import {
   SAGIDEEP_TRACKING,
   SAGIDEEP_USERS,
   SAGIDEEP_MOBILE_UPDATES,
-  SHEET_IP_TRACK_URL,
-  SHEET_URL,
 } from './src/config/config.js'
 
 /** Path on script.google.com for the Web App (used by dev proxy below). */
@@ -38,10 +36,6 @@ export default defineConfig({
   server: {
     proxy: {
       // Browser → same origin (no CORS); dev server forwards to Apps Script.
-      '/__sagideep_sheet_auth': appsScriptProxy(() => webAppPathnameFromExecUrl(SHEET_URL)),
-      '/__sagideep_sheet_ip_track': appsScriptProxy(() =>
-        webAppPathnameFromExecUrl(SHEET_IP_TRACK_URL || SHEET_URL),
-      ),
       '/__sagideep_users': appsScriptProxy(() => webAppPathnameFromExecUrl(SAGIDEEP_USERS)),
       '/__sagideep_playlists': appsScriptProxy(() => webAppPathnameFromExecUrl(SAGIDEEP_PLAYLISTS)),
       '/__sagideep_mobile_updates': appsScriptProxy(() => webAppPathnameFromExecUrl(SAGIDEEP_MOBILE_UPDATES)),

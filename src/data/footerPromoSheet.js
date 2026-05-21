@@ -4,7 +4,7 @@ import {
   FOOTER_PROMO_SHEET_CSV_URL,
   FOOTER_PROMO_SHEET_ENABLED,
 } from '../config/config.js'
-import { postWebAppJson } from '../services/userAuth.js'
+import { postWebAppJson, SAGIDEEP_MOBILE_UPDATES_URL } from '../services/userAuth.js'
 import { parseCSV } from './playlists.js'
 import { extractYoutubeVideoId } from '../utils/youtubeVideoId.js'
 
@@ -13,7 +13,7 @@ const CSV_COL_I = 8
 const CSV_COL_J = 9
 const CSV_COL_K = 10
 
-/** Runtime footer promo: same Apps Script as **`SHEET_URL`** in `config.js` (or optional CSV). */
+/** Runtime footer promo: **`SAGIDEEP_MOBILE_UPDATES`** in `config.js` (or optional CSV). */
 export const footerPromoSheet = reactive({
   ready: false,
   active: false,
@@ -150,7 +150,7 @@ async function applyPickedPromo(picked) {
 }
 
 /**
- * Loads footer promo: POST `{ action: "footerMobileUpdate" }` to **`SHEET_URL`**, then use **`data.mobileUpdateVideoLink`**, **`data.isMobileUpdate`**, **`data.subscribes`** (same shape as your `fetch` → `res.json()`).
+ * Loads footer promo: POST `{ action: "footerMobileUpdate" }` to **`SAGIDEEP_MOBILE_UPDATES`**, then use **`data.mobileUpdateVideoLink`**, **`data.isMobileUpdate`**, **`data.subscribes`**.
  * Optional CSV: still **I, J, K** columns per row.
  */
 export async function loadFooterPromoFromSheet() {
@@ -190,7 +190,7 @@ export async function loadFooterPromoFromSheet() {
     } else {
       const data = await postWebAppJson(
         { action: FOOTER_PROMO_APPS_SCRIPT_ACTION },
-        { useConfigSheetUrlOnly: true },
+        { sheetUrlOverride: SAGIDEEP_MOBILE_UPDATES_URL() },
       )
       await applyPickedPromo(pickPromoFromWebAppJson(data))
     }

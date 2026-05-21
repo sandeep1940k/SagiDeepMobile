@@ -1,7 +1,7 @@
 /**
  * IP tracking: POST **JSON** to your Web App (same as signup/login): `{ action: "trackIP", ip }`.
  * Your `doPost` must use `JSON.parse(e.postData.contents)` — not `e.parameter` (form-urlencoded).
- * Uses `postWebAppJson` → `SHEET_URL` or optional `VITE_SHEET_IP_TRACK_URL` (see `config.js`).
+ * Uses `postWebAppJson` → `SAGIDEEP_TRACKING` or optional `VITE_SHEET_IP_TRACK_URL` (see `config.js`).
  */
 
 import {
@@ -9,7 +9,7 @@ import {
   SHEET_IP_TRACK_ENABLED,
   SHEET_IP_TRACK_URL,
 } from '../config/config.js'
-import { postWebAppJson } from './userAuth.js'
+import { postWebAppJson, SAGIDEEP_TRACKING_URL } from './userAuth.js'
 
 /** Throttle so rapid taps do not flood the script. */
 const MIN_MS_BETWEEN_POSTS = 2500
@@ -64,11 +64,8 @@ export async function reportSheetClickIpTrack() {
     if (import.meta.env.VITE_SHEET_IP_TRACK_SEND_DATETIME === '1') {
       payload.dateTime = formatTrackDateTime(new Date())
     }
-    const override = String(SHEET_IP_TRACK_URL || '').trim()
-    await postWebAppJson(payload, {
-      useConfigSheetUrlOnly: true,
-      ...(override ? { sheetUrlOverride: override } : {}),
-    })
+    const trackUrl = String(SHEET_IP_TRACK_URL || '').trim() || SAGIDEEP_TRACKING_URL()
+    await postWebAppJson(payload, { sheetUrlOverride: trackUrl })
     if (import.meta.env.DEV && import.meta.env.VITE_SHEET_IP_TRACK_DEBUG === '1') {
       console.info('[sheet ip track] ok', payload.action)
     }
